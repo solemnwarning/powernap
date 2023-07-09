@@ -19,6 +19,7 @@
 
 import os, re, subprocess, time
 from logging import error, debug, info, warn
+from pathlib import(Path)
 
 # Check /dev/*, such that we don't powernap the system if someone
 # is actively using a terminal device
@@ -31,16 +32,12 @@ def get_console_activity():
 # Obtain the interrupts at any given point in time
 def get_interrupts():
     interrupts = 0
-    f = open("/proc/interrupts", "r")
-    for line in f.readlines():
-        items = line.split()
-        source = items.pop()
+    for irq in os.listdir("/sys/kernel/irq/"):
+        source = Path("/sys/kernel/irq/" + irq + "/actions").read_text()
         if source == "i8042" or source == "keyboard" or source == "mouse":
-            items.pop(0)
-            items.pop()
-            for i in items:
+            counts = Path("/sys/kernel/irq/" + irq + "/per_cpu_count").read_text().split(",")
+            for i in counts:
                 interrupts += int(i)
-    f.close()
     return interrupts
 
 class ConsoleMonitor():

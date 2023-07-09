@@ -31,9 +31,9 @@ class Monitor ( object ):
         self._activity = 0
         self._grace    = 0
         self._period   = 60.0
-        if ( config.has_key('name')   ): self._name   = config['name']
-        if ( config.has_key('grace')  ): self._grace  = config['grace']
-        if ( config.has_key('absent') ): self._period = config['absent']
+        if ( 'name' in config   ): self._name   = config['name']
+        if ( 'grace' in config  ): self._grace  = config['grace']
+        if ( 'absent' in config ): self._period = config['absent']
         self.reset()
 
     # String representation for debug

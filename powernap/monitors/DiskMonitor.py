@@ -15,7 +15,7 @@
 #
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-import re, commands
+import re, subprocess
 from logging import error, debug, info, warn
 
 # Monitor plugin
@@ -44,7 +44,7 @@ class DiskMonitor ():
     # 'standby' or 'sleeping'.  Assume 'active/idle', except in case
     # where fuction returns 'No such file' error (e.g. unknown drive)
     def is_disk_active(self):
-        hdparm = commands.getoutput("hdparm -C /dev/%s" % self._name).splitlines()
+        hdparm = subprocess.getoutput("hdparm -C /dev/%s" % self._name).splitlines()
         is_active = True
         for line in hdparm:
             if self._regex_not_found.match(line):

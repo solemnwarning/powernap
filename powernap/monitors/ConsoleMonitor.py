@@ -17,7 +17,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os, re, commands, time
+import os, re, subprocess, time
 from logging import error, debug, info, warn
 
 # Check /dev/*, such that we don't powernap the system if someone
@@ -58,8 +58,8 @@ class ConsoleMonitor():
         if cur_time > self._time or cur_irqs > self._irqs:
                 self._irqs = cur_irqs
                 self._time = cur_time
-		return True
-	return False
+                return True
+        return False
 
     def start(self):
         pass

@@ -34,8 +34,8 @@ class LoadMonitor():
         if t == "n":
             t = multiprocessing.cpu_count()
         if os.getloadavg()[0] > float(t):
-	    return True
-	return False
+            return True
+        return False
 
     def start(self):
         pass

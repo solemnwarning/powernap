@@ -20,7 +20,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os, sys, commands
+import os, sys, subprocess
 from optparse import OptionParser
 
 global PKG
@@ -51,13 +51,13 @@ def is_action_enabled(action):
 def do_action_enable(action):
     src = "%s/%s" % (PM_ACTIONS_DIR, action)
     info("enabling action [%s]..." % action)
-    os.chmod(src, 0755)
+    os.chmod(src, 0o755)
 
 def do_action_disable(action):
     path = "%s/%s" % (PM_ACTIONS_DIR, action)
     info("disabling action [%s]..." % action)
     #TODO: Not only remove, but undo changes if possible!!
-    os.chmod(path, 0644)
+    os.chmod(path, 0o644)
 
 def list_available_actions():
     #TODO: Display the actions and show which ones are enabled or disabled.
@@ -65,22 +65,22 @@ def list_available_actions():
         actionslist = os.listdir(PM_ACTIONS_DIR)
         for action in actionslist:
             path = "%s/%s" % (PM_ACTIONS_DIR, action)
-            (status, output) = commands.getstatusoutput("%s help" % path)
+            (status, output) = subprocess.getstatusoutput("%s help" % path)
             if os.access(path, os.X_OK):
-                print "[enabled]  %-20s - %s" % (action, output)
+                print("[enabled]  %-20s - %s" % (action, output))
             else:
-                print "[disabled] %-20s - %s" % (action, output)
+                print("[disabled] %-20s - %s" % (action, output))
     except:
         error("Could not retrieve list of available actions")
 
 def get_action_status():
-    print "obtaining status of"
+    print("obtaining status of")
 
 def info(str):
-    print("INFO: %s" % str)
+    print(("INFO: %s" % str))
 
 def error(str):
-    print("ERROR: %s" % str)
+    print(("ERROR: %s" % str))
     sys.exit(1)
 
 if __name__ == '__main__':
@@ -146,4 +146,4 @@ if __name__ == '__main__':
         list_available_actions()
 
     if not hasOptions:
-        print parser.get_usage()
+        print(parser.get_usage())

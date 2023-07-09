@@ -21,7 +21,7 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # Imports
-import commands
+import subprocess
 import logging, logging.handlers
 import os
 import re
@@ -103,7 +103,7 @@ def warn_users():
     msg2 = "To cancel this operation, press any key in any terminal"
     debug(logging.WARNING, msg1)
     if powernap.WARN:
-        commands.getoutput("echo '%s\n%s' | wall" % (msg1, msg2))
+        subprocess.getoutput("echo '%s\n%s' | wall" % (msg1, msg2))
 
 # TODO: notify authorities about action taken
 def notify_authorities():
@@ -113,13 +113,13 @@ def notify_authorities():
 def in_powersave():
     global POWERSAVE_FLAG
     if os.path.exists(POWERSAVE_FLAG):
-	return True
+        return True
     else:
         return False
 
 # Basic touch function
 def touch(fname, times = None):
-    with file(fname, 'a'):
+    with open(fname, 'a'):
         os.utime(fname, times)
 
 # flag_powersave
@@ -141,7 +141,7 @@ def take_recover_action():
     for monitor in MONITORS:
         monitor._absent_seconds = 0
     if os.path.exists("/var/run/powernap.state"):
-	os.unlink("/var/run/powernap.state")
+       os.unlink("/var/run/powernap.state")
     # Re-enable SERVICES/MODULES when waking from PowerSave
     # TODO: This should probably go into their own executable.
     if powernap.KERN_MODULES:
@@ -267,7 +267,7 @@ def powernapd_loop():
         if grace_monitors > 0 and grace_monitors == len(MONITORS):
             if users_warned is False and powernap.ACTION_METHOD != 0:
                 # Only display warn_users() wall message if action is something other than
-		# powersave, and only when initially entering to GRACE_PERIOD.
+                # powersave, and only when initially entering to GRACE_PERIOD.
                 # If in GRACE_PERIOD but a warn_users() already issued, then ignore condition.
                 warn_users()
                 users_warned = True
@@ -308,7 +308,7 @@ def daemonize (stdin="/dev/null", stdout="/var/log/%s.log" % powernap.PKG, stder
         pid = os.fork()
         if pid > 0:
             sys.exit(0)
-    except OSError, e:
+    except OSError as e:
         sys.stderr.write("fork #1 failed: (%d) %sn" % (e.errno, e.strerror))
         sys.exit(1)
     os.chdir("/")
@@ -317,16 +317,16 @@ def daemonize (stdin="/dev/null", stdout="/var/log/%s.log" % powernap.PKG, stder
         pid = os.fork()
         if pid > 0:
             sys.exit(0)
-    except OSError, e:
+    except OSError as e:
         sys.stderr.write("fork #2 failed: (%d) %sn" % (e.errno, e.strerror))
         sys.exit(1)
     f = open(LOCK,'w')
     f.write(str(os.getpid()))
     f.close()
     for f in sys.stdout, sys.stderr: f.flush()
-    si = file(stdin, 'r')
-    so = file(stdout, 'a+')
-    se = file(stderr, 'a+', 0)
+    si = open(stdin, 'r')
+    so = open(stdout, 'a+')
+    se = open(stderr, 'ba+', 0)
     os.dup2(si.fileno(), sys.stdin.fileno())
     os.dup2(so.fileno(), sys.stdout.fileno())
     os.dup2(se.fileno(), sys.stderr.fileno())

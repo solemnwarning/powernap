@@ -37,7 +37,7 @@ def get_local_wol_data(mac):
     data = ''.join(['FFFFFFFFFFFF', mac * 16])
     wol_data = ''
     for i in range(0, len(data), 2):
-        wol_data = ''.join([wol_data, struct.pack('B', int(data[i: i + 2], 16))])
+        wol_data = ''.join(map(str, [wol_data, struct.pack('B', int(data[i: i + 2], 16))]))
     return wol_data
 
 # Obtain a list of available eth's, with its MAC address and WoL data.

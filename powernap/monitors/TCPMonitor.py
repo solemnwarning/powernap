@@ -16,7 +16,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os, re, commands
+import os, re, subprocess
 from logging import error, debug, info, warn
 
 # True if an network connection matches 
@@ -42,10 +42,10 @@ class TCPMonitor():
 
     # Check for connections
     def active(self):
-        ps = commands.getoutput("netstat -Wnt").splitlines()
+        ps = subprocess.getoutput("netstat -Wnt").splitlines()
         if find_connection(ps, self._regexes):
-		return True
-	return False
+           return True
+        return False
 
     def start(self):
         pass

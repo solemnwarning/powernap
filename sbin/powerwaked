@@ -19,7 +19,7 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # Imports
-import commands
+import subprocess
 import logging, logging.handlers
 import os
 import re
@@ -97,7 +97,7 @@ def warn_users():
     msg2 = "To cancel this operation, press any key in any terminal"
     debug(logging.WARNING, msg1)
     if powerwake.WARN:
-        commands.getoutput("echo '%s\n%s' | wall" % (msg1, msg2))
+        subprocess.getoutput("echo '%s\n%s' | wall" % (msg1, msg2))
 
 # TODO: notify authorities about action taken
 def notify_authorities():
@@ -119,7 +119,7 @@ def powerwaked_loop():
     # Starting the Monitors
     for monitor in MONITORS:
         debug(logging.DEBUG, "Starting [%s] Monitoring" % monitor._type)
-        for ip, mac in monitor._arp_cache.iteritems():
+        for ip, mac in monitor._arp_cache.items():
             debug(logging.DEBUG, "  Monitoring %s - %s" % (ip, mac))
         monitor.start()
 
@@ -152,7 +152,7 @@ def daemonize (stdin="/dev/null", stdout="/var/log/%s.log" % powerwake.PKG, stde
         pid = os.fork()
         if pid > 0:
             sys.exit(0)
-    except OSError, e:
+    except OSError as e:
         sys.stderr.write("fork #1 failed: (%d) %sn" % (e.errno, e.strerror))
         sys.exit(1)
     os.chdir("/")
@@ -161,7 +161,7 @@ def daemonize (stdin="/dev/null", stdout="/var/log/%s.log" % powerwake.PKG, stde
         pid = os.fork()
         if pid > 0:
             sys.exit(0)
-    except OSError, e:
+    except OSError as e:
         sys.stderr.write("fork #2 failed: (%d) %sn" % (e.errno, e.strerror))
         sys.exit(1)
     f = open(LOCK,'w')

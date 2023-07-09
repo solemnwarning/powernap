@@ -17,7 +17,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os, re, commands
+import os, re, subprocess
 from logging import error, debug, info, warn
 
 # Find list of PIDs that match a given regex (cmdline)
@@ -38,10 +38,10 @@ class ProcessMonitor():
 
     # Check for PIDs
     def active(self):
-        ps = commands.getoutput("ps -eo args").splitlines()
+        ps = subprocess.getoutput("ps -eo args").splitlines()
         if find_process(ps, self._regex):
-		return True
-	return False
+               return True
+        return False
 
     def start(self):
         pass

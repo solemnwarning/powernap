@@ -18,8 +18,8 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import ConfigParser, sys, re, os
-from monitors import ProcessMonitor, LoadMonitor, InputMonitor, TCPMonitor, UDPMonitor, IOMonitor, WoLMonitor, ConsoleMonitor, DiskMonitor
+import configparser, sys, re, os
+from .monitors import ProcessMonitor, LoadMonitor, InputMonitor, TCPMonitor, UDPMonitor, IOMonitor, WoLMonitor, ConsoleMonitor, DiskMonitor
 
 
 class PowerNap:
@@ -29,8 +29,8 @@ class PowerNap:
         self.CONFIG = "/etc/powernap/config"
         self.ACTION = "/usr/sbin/powernap"
         self.RECOVER_ACTION = "/usr/sbin/pm-powersave false"
-        self.ABSENT_SECONDS = sys.maxint
-        self.STAGE2_ABSENT_SECONDS = sys.maxint
+        self.ABSENT_SECONDS = sys.maxsize
+        self.STAGE2_ABSENT_SECONDS = sys.maxsize
         self.INTERVAL_SECONDS = int(1)
         self.GRACE_SECONDS = int(60)
         self.DEBUG = int(0)
@@ -47,7 +47,7 @@ class PowerNap:
 
     def load_config_file(self):
         stage2_section = "%s-stage2" % self.PKG
-        cfg = ConfigParser.ConfigParser()
+        cfg = configparser.ConfigParser()
         cfg.read(self.CONFIG)
 
         try:
@@ -76,7 +76,7 @@ class PowerNap:
                 self.load_configd_files("%s/%s" % (configd, config))
 
     def load_configd_files(self, config_file):
-        cfg = ConfigParser.ConfigParser()
+        cfg = configparser.ConfigParser()
         cfg.read(config_file)
 
         try:

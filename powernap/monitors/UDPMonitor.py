@@ -58,7 +58,7 @@ class UDPMonitor (threading.Thread):
                     sock.bind(('', self._port))
                     sock.settimeout(1.0)
                     listen = True
-                except Exception, e:
+                except Exception as e:
                     error('%s - failed to config socket [e=%s]' % (self, str(e)))
                     time.sleep(1.0)
             else:

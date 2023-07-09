@@ -16,7 +16,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os, sys, commands
+import os, sys, subprocess
 from optparse import OptionParser
 from powerwake import powerwake
 
@@ -28,17 +28,17 @@ if not os.geteuid()==0:
     sys.exit("This utility may only be run by the root user.")
 
 def error(error):
-    print " ERROR: %s" % error
+    print(" ERROR: %s" % error)
     sys.exit(1)
 
 def info(info):
-    print " INFO: %s" % info
+    print(" INFO: %s" % info)
 
 # Add IP to monitor
 def add_host_to_monitor(powerwake, host, macaddr, monitor):
     # obtain the list of monitored machines
     host_to_mac = powerwake.get_monitored_hosts(monitor.lower())
-    for ip, mac in host_to_mac.iteritems():
+    for ip, mac in host_to_mac.items():
         if host == ip:
             info("Updating information for [%s] in [%s] monitor" % (host, monitor))
             mac = powerwake.get_mac_or_ip_from_arp(host)
@@ -73,7 +73,7 @@ def add_host_to_monitor(powerwake, host, macaddr, monitor):
 
 def delete_host_from_monitor(powerwake, host, monitor):
     host_to_mac = powerwake.get_monitored_hosts(monitor.lower())
-    for ip, mac in host_to_mac.iteritems():
+    for ip, mac in host_to_mac.items():
         if host == ip or host == mac:
             info("Deleting %s from [%s] monitor" % (ip, monitor))
             del host_to_mac[ip]
@@ -83,17 +83,17 @@ def delete_host_from_monitor(powerwake, host, monitor):
 # List IP's to monitor
 def list_monitored_hosts(powerwake, monitor):
     hosts = powerwake.get_monitored_hosts(monitor.lower())
-    print "          HOST       -        MAC"
+    print("          HOST       -        MAC")
     try:
-        for ip, mac in hosts.iteritems():
-            print "%+20s - %-20s" % (ip, mac)
+        for ip, mac in hosts.items():
+            print("%+20s - %-20s" % (ip, mac))
     except:
         error("Could not obtain monitored hosts")
 
 def list_available_monitors(powerwake):
-    print " Listing available PowerWaked Monitors\n"
+    print(" Listing available PowerWaked Monitors\n")
     for monitor in powerwake.MONITORS:
-        print " [enabled] %+20s" % monitor['monitor']
+        print(" [enabled] %+20s" % monitor['monitor'])
 
 if __name__ == '__main__':
     powerwake = powerwake.PowerWake()
@@ -152,4 +152,4 @@ if __name__ == '__main__':
         list_available_monitors(powerwake)
 
     if not hasOptions:
-        print parser.get_usage()
+        print(parser.get_usage())

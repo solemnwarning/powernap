@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 #    powerwake.py - handles powerwaked config and initializes Monitors.
 #

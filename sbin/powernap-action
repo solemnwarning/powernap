@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 #    powernap-action - enable or disable actions when running powernap
 #                      Available actions at /usr/lib/powernap/actions.

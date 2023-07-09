@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 #    powerwake - a smart remote host waking utility, supporting multiple
 #                waking methods, and caching known hostnames and addresses

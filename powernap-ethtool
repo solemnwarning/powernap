@@ -5,7 +5,7 @@ if [ -x /etc/powernap/ethtool-command ]; then
     /etc/powernap/ethtool-command
 else
     # Otherwise, try to enable Wake-on-LAN on valid interface(s)
-    for i in $(LANG=C /sbin/ifconfig | grep "encap:Ethernet" | awk '{print $1}'); do
+    for i in $(LANG=C /bin/ls /sys/class/net/); do
         if /usr/sbin/ethtool $i | grep -qs "Supports Wake-on: .*g"; then
             /usr/sbin/ethtool -s $i wol g
         fi

@@ -13,8 +13,7 @@ _powerwake()
 
     case "${prev}" in
         -@(b|-broadcast))
-            COMPREPLY=( $( compgen -W "$( LANG=C ifconfig 2>/dev/null | \
-                awk '/Bcast:/ {print $3}' | awk -F ':' '{print $2}' )" \
+            COMPREPLY=( $( compgen -W "$( LANG=C ip -4 addr | perl -ne 'm/(?:^|\s)brd\s+(\S+)/ && print "$1\n";' )" \
                 -- ${cur} ) )
             return 0
             ;;

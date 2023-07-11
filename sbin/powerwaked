@@ -32,7 +32,6 @@ from powerwake import powerwake
 
 powerwake.PKG = "powerwake"
 powerwake.DEBUG = int(3)
-powerwake.INTERVAL_SECONDS = int(1)
 
 
 # Initialize powerwake. This initialization loads the config file.
@@ -80,7 +79,6 @@ def establish_lock():
         signal.signal(signal.SIGQUIT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
         signal.signal(signal.SIGIO, signal.SIG_IGN)
-        signal.signal(signal.SIGUSR1, take_action_handler)
 
 # Clean up lock file on termination signals
 def signal_handler(signal, frame):
@@ -89,31 +87,6 @@ def signal_handler(signal, frame):
     debug(logging.INFO, "Stopping %s" % powerwake.PKG)
     sys.exit(1)
 
-# Send a message to system users, that we're about to take an action,
-# and sleep for a grace period
-def warn_users():
-    timestamp = time.strftime("%Y-%m-%d_%H:%M:%S")
-    msg1 = "[%s] PowerNap will take the following action in [%s] seconds: [%s]" % (timestamp, powerwake.GRACE_SECONDS, powerwake.ACTION)
-    msg2 = "To cancel this operation, press any key in any terminal"
-    debug(logging.WARNING, msg1)
-    if powerwake.WARN:
-        subprocess.getoutput("echo '%s\n%s' | wall" % (msg1, msg2))
-
-# TODO: notify authorities about action taken
-def notify_authorities():
-    debug(logging.WARNING, "Taking action [%s]" % powerwake.ACTION)
-
-# Zero the counters and take the action
-def take_action():
-    notify_authorities()
-    debug(logging.DEBUG, "Reseting counters prior to taking action")
-    for monitor in MONITORS:
-        monitor._absent_seconds = 0
-    os.system("%s %s" % (powerwake.ACTION, powerwake.ACTION_METHOD))
-
-# Handler for asynchronous external signals
-def take_action_handler(signal, frame):
-    take_action()
 
 def powerwaked_loop():
     # Starting the Monitors
@@ -126,25 +99,7 @@ def powerwaked_loop():
     users_warned = False
 
     while 1:
-        debug(logging.DEBUG, "Sleeping [%d] seconds" % powerwake.INTERVAL_SECONDS)
-        time.sleep(powerwake.INTERVAL_SECONDS)
-        # Examine monitor activity, compute absent time of each monitored monitor process
-        debug(logging.DEBUG, "Examining Monitors")
-        absent_monitors = 0
-        for monitor in MONITORS:
-            debug(logging.DEBUG, "  Looking for [%s] %s" % (monitor._name, monitor._type))
-            if monitor.active():
-                monitor._absent_seconds = 0
-                debug(logging.DEBUG, "    Activity found, reset absent time [%d]" % (monitor._absent_seconds))
-            else:
-                # activity not found, increment absent time
-                monitor._absent_seconds += powerwake.INTERVAL_SECONDS
-                debug(logging.DEBUG, "    Activity not found, increment absent time [%d]" % (monitor._absent_seconds))
-
-        # Determine if action needs to be taken
-        if absent_monitors > 0 and absent_monitors == len(MONITORS):
-            take_action()
-
+        time.sleep(1)
 
 # "Forking a Daemon Process on Unix" from The Python Cookbook
 def daemonize (stdin="/dev/null", stdout="/var/log/%s.log" % powerwake.PKG, stderr="/var/log/%s.err" % powerwake.PKG):

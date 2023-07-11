@@ -26,8 +26,6 @@ class PowerWake:
     def __init__(self):
         self.PKG = "powerwake"
         self.CONFIG = "/etc/powernap/powerwaked.conf"
-        self.ACTION = "/usr/bin/powerwake"
-        self.INTERVAL_SECONDS = int(1)
         self.DEBUG = int(0)
         self.MONITORS = []
         # Load default config file (/etc/powernap/config)
@@ -51,12 +49,8 @@ class PowerWake:
             pass
 
     def set_default_values(self, var, value):
-        if var == "interval_seconds":
-            self.INTERVAL_SECONDS = eval(value)
         if var == "debug":
             self.DEBUG = eval(value)
-        if var == "action":
-            self.ACTION = eval(value)
         if var == "warn":
             if value == "y" or value == "yes":
                 self.WARN = True

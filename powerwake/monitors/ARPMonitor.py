@@ -39,12 +39,7 @@ class ARPMonitor(threading.Thread):
         self._type = config['monitor']
         self._name = "ARP Monitor"
         self._arp_cache = config['cache']
-        self._absent_seconds = 0
         self._running = False
-
-    # Check for PIDs
-    def active(self):
-	return False 
 
     # Start thread
     def start(self):

@@ -21,7 +21,6 @@
 import configparser, sys, re, os
 from .monitors import ProcessMonitor, LoadMonitor, InputMonitor, TCPMonitor, UDPMonitor, IOMonitor, WoLMonitor, ConsoleMonitor, DiskMonitor
 
-
 class PowerNap:
 
     def __init__(self):
@@ -33,7 +32,8 @@ class PowerNap:
         self.STAGE2_ABSENT_SECONDS = sys.maxsize
         self.INTERVAL_SECONDS = int(1)
         self.GRACE_SECONDS = int(60)
-        self.DEBUG = int(0)
+        self.DEBUG = False
+        self.LOG = ""
         self.ACTION_METHOD = 0
         self.STAGE2_ACTION_METHOD = 4
         self.MONITORS = []
@@ -100,6 +100,8 @@ class PowerNap:
             self.GRACE_SECONDS = eval(value)
         if var == "debug":
             self.DEBUG = eval(value)
+        if var == "log":
+            self.LOG = eval(value)
         if var == "action":
             self.ACTION = eval(value)
         if var == "action_method":

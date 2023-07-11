@@ -59,13 +59,18 @@ INTERVAL_SECONDS = 1
 #   WARN = n
 WARN = y
 
-# The powernap daemon logs errors to /var/log/powernap.err, and some basic
-# information to /var/log/powernap.log.  To change the verbosity of this
-# logging, set DEBUG to 0, 1, 2, or 3:
-# The default debug level is 0.
-#    DEBUG = 1
-#    DEBUG = 2
-DEBUG = 0
+# Uncomment this line to see debugging messages in the log.
+# DEBUG = True
+
+# Uncomment this line to send log messages to the local syslog daemon.
+# NOTE: Not needed when running as a direct child of systemd - we output
+# messages to stdout when not a daemon and systemd deals with logging them
+# for us.
+#
+# LOG = "syslog"
+
+# Uncomment this line to write log messages to a file.
+# LOG = "/var/log/powernap.log"
 
 # The powernap daemon can watch for changes in the configuration file in
 # /etc/powernap directory without having to restart it.

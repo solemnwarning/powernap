@@ -52,7 +52,7 @@ class ARPMonitor(threading.Thread):
 
     def run(self):
         while self._running:
-            sniff(prn=self.arp_wake_sleeper_callback, filter="arp", store=0)
+            sniff(prn=self.arp_wake_sleeper_callback, filter="arp", store=0, timeout=1)
 
     def arp_wake_sleeper_callback(self, pkt):
         # evaluates if received ARP packet with dest ip (pkt[ARP].pdst) is in cache

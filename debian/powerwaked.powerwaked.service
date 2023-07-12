@@ -2,7 +2,7 @@
 Description=PowerWake Server
 
 [Service]
-Type=forking
+Type=simple
 ExecStart=/usr/sbin/powerwaked
 
 [Install]

@@ -19,6 +19,7 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # Imports
+import argparse
 import subprocess
 import logging, logging.handlers
 import os
@@ -29,10 +30,6 @@ import time
 import socket, traceback
 import struct
 from powerwake import powerwake
-
-powerwake.PKG = "powerwake"
-powerwake.DEBUG = int(3)
-
 
 # Initialize powerwake. This initialization loads the config file.
 try:
@@ -45,18 +42,10 @@ except:
 # Define globals
 global LOCK, CONFIG, MONITORS
 LOCK = "/var/run/%s.pid" % powerwake.PKG
-LOG = "/var/log/%s.log" % powerwake.PKG
-
-logging.basicConfig(filename=LOG, format='%(asctime)s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d_%H:%M:%S', level=logging.DEBUG,)
-
-# Generic debug function
-def debug(level, msg):
-    if level >= (logging.ERROR - 10*powerwake.DEBUG):
-        logging.log(level, msg)
 
 # Generic error function
 def error(msg):
-    debug(logging.ERROR, msg)
+    logging.error(msg)
     sys.exit(1)
 
 # Lock function, using a pidfile in /var/run
@@ -80,36 +69,41 @@ def establish_lock():
         signal.signal(signal.SIGTERM, signal_handler)
         signal.signal(signal.SIGIO, signal.SIG_IGN)
 
+running = True
+
 # Clean up lock file on termination signals
 def signal_handler(signal, frame):
-    if os.path.exists(LOCK):
-        os.remove(LOCK)
-    debug(logging.INFO, "Stopping %s" % powerwake.PKG)
-    sys.exit(1)
+    global running
 
+    logging.info("Stopping %s" % powerwake.PKG)
+    running = False
 
 def powerwaked_loop():
+    global running
+
     # Starting the Monitors
     for monitor in MONITORS:
-        debug(logging.DEBUG, "Starting [%s] Monitoring" % monitor._type)
+        logging.debug("Starting [%s] Monitoring" % monitor._type)
         for ip, mac in monitor._arp_cache.items():
-            debug(logging.DEBUG, "  Monitoring %s - %s" % (ip, mac))
+            logging.debug("  Monitoring %s - %s" % (ip, mac))
         monitor.start()
 
     users_warned = False
 
-    while 1:
+    while running:
         time.sleep(1)
 
+    for monitor in MONITORS:
+        monitor.stop()
+
 # "Forking a Daemon Process on Unix" from The Python Cookbook
-def daemonize (stdin="/dev/null", stdout="/var/log/%s.log" % powerwake.PKG, stderr="/var/log/%s.err" % powerwake.PKG):
+def daemonize (stdin="/dev/null", stdout="/dev/null", stderr="/dev/null"):
     try:
         pid = os.fork()
         if pid > 0:
             sys.exit(0)
     except OSError as e:
-        sys.stderr.write("fork #1 failed: (%d) %sn" % (e.errno, e.strerror))
-        sys.exit(1)
+        error("fork #1 failed: (%d) %sn" % (e.errno, e.strerror))
     os.chdir("/")
     os.setsid()
     try:
@@ -117,15 +111,14 @@ def daemonize (stdin="/dev/null", stdout="/var/log/%s.log" % powerwake.PKG, stde
         if pid > 0:
             sys.exit(0)
     except OSError as e:
-        sys.stderr.write("fork #2 failed: (%d) %sn" % (e.errno, e.strerror))
-        sys.exit(1)
+        error("fork #2 failed: (%d) %sn" % (e.errno, e.strerror))
     f = open(LOCK,'w')
     f.write(str(os.getpid()))
     f.close()
     for f in sys.stdout, sys.stderr: f.flush()
-    si = file(stdin, 'r')
-    so = file(stdout, 'a+')
-    se = file(stderr, 'a+', 0)
+    si = open(stdin, 'r')
+    so = open(stdout, 'a+')
+    se = open(stderr, 'ba+', 0)
     os.dup2(si.fileno(), sys.stdin.fileno())
     os.dup2(so.fileno(), sys.stdout.fileno())
     os.dup2(se.fileno(), sys.stderr.fileno())
@@ -133,14 +126,50 @@ def daemonize (stdin="/dev/null", stdout="/var/log/%s.log" % powerwake.PKG, stde
 
 # Main program
 if __name__ == '__main__':
-    # Ensure that only one instance runs
-    establish_lock()
-    daemonize()
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument("-d", "--daemon", action = "store_true", help = "Detatch and run as a background (daemon) process")
+    arg_parser.add_argument("-D", "--debug", action = "store_true",  help = "Enable debug log messages")
+
+    args = arg_parser.parse_args()
+
+    log_handlers = []
+
+    if powerwake.LOG == "syslog":
+        syslog = logging.handlers.SysLogHandler(address = '/dev/log', facility = logging.handlers.SysLogHandler.LOG_DAEMON)
+        syslog.ident = "powernapd: "
+        log_handlers.append(syslog)
+    elif powerwake.LOG != "":
+        # Log file specified in configuration
+        file_handler = logging.handlers.WatchedFileHandler(powerwake.LOG)
+        file_handler.setFormatter(logging.Formatter(
+            fmt = '%(asctime)s %(levelname)-8s %(message)s',
+            datefmt = '%Y-%m-%d_%H:%M:%S'))
+
+        log_handlers.append(file_handler)
+
+    if not args.daemon:
+        # Output log to console when not running as a daemon.
+        log_handlers.append(logging.StreamHandler())
+
+    logging.basicConfig(
+        handlers = log_handlers,
+        level = logging.DEBUG if powerwake.DEBUG or args.debug else logging.INFO)
+
+    logging.captureWarnings(True)
+
     try:
+        # Ensure that only one instance runs
+        establish_lock()
+
+        if args.daemon:
+            daemonize()
+
         # Run the main powernapd loop
         MONITORS = powerwake.get_monitors()
-        debug(logging.INFO, "Starting %s" % powerwake.PKG)
+        logging.info("Starting %s" % powerwake.PKG)
         powerwaked_loop()
+    except Exception:
+        logging.exception("Uncaught exception")
     finally:
         # Clean up the lock file
         if os.path.exists(LOCK):

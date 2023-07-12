@@ -121,7 +121,7 @@ def get_arp_current(host_to_mac):
 
 def write_arp_cache(host_to_mac):
     if not os.access("%s/.cache/" % HOME, os.W_OK):
-	return
+        return
     if not os.path.exists("%s/.cache/" % HOME):
         os.makedirs("%s/.cache/" % HOME)
     f = open("%s/.cache/ethers" % HOME, 'a')
@@ -188,15 +188,15 @@ if __name__ == '__main__':
                 m = i
                 pass
             else:
-	        # Retrieve the mac cache
-	        host_to_mac = get_arp_cache()
+                # Retrieve the mac cache
+                host_to_mac = get_arp_cache()
                 if host_to_mac.has_key(i):
                     # mac found in the hash
                     info("Trying to wake host: [%s]" % i)
                     m = host_to_mac[i]
-		else:
-		    # not in the cache, do the expensive arp search
-	            host_to_mac = get_arp_hash()
+                else:
+                    # not in the cache, do the expensive arp search
+                    host_to_mac = get_arp_hash()
                     if host_to_mac.has_key(i):
                         # mac found in the hash
                         info("Trying to wake host: [%s]" % i)

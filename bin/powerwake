@@ -19,7 +19,6 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import commands
 import os
 import re
 import socket
@@ -63,9 +62,7 @@ def wakeonlan(mac):
     # We should cache this to /var/cache/powerwake/ethers,
     # in case arp entry isn't available next time
     data = ''.join(['FFFFFFFFFFFF', mac * 16])
-    send_data = ''
-    for i in range(0, len(data), 2):
-        send_data = ''.join([send_data, struct.pack('B', int(data[i: i + 2], 16))])
+    send_data = bytes.fromhex(data)
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -190,14 +187,14 @@ if __name__ == '__main__':
             else:
                 # Retrieve the mac cache
                 host_to_mac = get_arp_cache()
-                if host_to_mac.has_key(i):
+                if i in host_to_mac:
                     # mac found in the hash
                     info("Trying to wake host: [%s]" % i)
                     m = host_to_mac[i]
                 else:
                     # not in the cache, do the expensive arp search
                     host_to_mac = get_arp_hash()
-                    if host_to_mac.has_key(i):
+                    if i in host_to_mac:
                         # mac found in the hash
                         info("Trying to wake host: [%s]" % i)
                         m = host_to_mac[i]

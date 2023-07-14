@@ -25,11 +25,6 @@ from scapy.all import *
 
 conf.sniff_promisc = 0
 
-# Create a WoL magic packet
-def make_magic(sleeper_mac_str):
-    data = ''.join(['FFFFFFFFFFFF', sleeper_mac_str.replace(":", "") * 16])
-    return Ether(dst="ff:ff:ff:ff:ff:ff")/IP(dst='255.255.255.255')/UDP(dport=7)/Raw(load=data)
-
 class ARPMonitor(threading.Thread):
 
     # Initialise
@@ -39,6 +34,7 @@ class ARPMonitor(threading.Thread):
         self._name = "ARP Monitor"
         self._arp_cache = config['cache']
         self._running = False
+        self._socket = None
 
     # Start thread
     def start(self):
@@ -50,8 +46,14 @@ class ARPMonitor(threading.Thread):
         self._running = False
 
     def run(self):
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
         while self._running:
             sniff(prn=self.arp_wake_sleeper_callback, filter="arp", store=0, timeout=1)
+
+        self._socket.close()
+        self._socket = None
 
     def arp_wake_sleeper_callback(self, pkt):
         # evaluates if received ARP packet with dest ip (pkt[ARP].pdst) is in cache
@@ -63,5 +65,11 @@ class ARPMonitor(threading.Thread):
             route = conf.route.route(pkt[ARP].pdst)
             iface = route[0]
 
-            magic_pkt = make_magic(self._arp_cache[pkt[ARP].pdst])
-            sendp(magic_pkt, iface = iface)
+            # And now use scapy again to find the interface's broadcast address so we can send a
+            # frame on that link using the sockets API.
+            bcast_ip = conf.route.get_if_bcast("eno1.1330")[0]
+
+            mac = self._arp_cache[pkt[ARP].pdst]
+            wol_payload = bytes.fromhex(''.join(['FFFFFFFFFFFF', mac.replace(":", "") * 16]))
+
+            self._socket.sendto(wol_payload, (bcast_ip, 7))

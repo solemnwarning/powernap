@@ -23,13 +23,12 @@ from logging import error, debug, info, warn
 from scapy.all import *
 #from scapy.all import sniff, ARP, Ether, IP, UDP, Raw, sendp
 
-# Converts the MAC to some weird format
-def mac_to_string(mac):
-    return str(Ether(dst=mac))[:6]
+conf.sniff_promisc = 0
 
 # Create a WoL magic packet
 def make_magic(sleeper_mac_str):
-    return Ether(dst='ff:ff:ff:ff:ff:ff')/IP(dst='255.255.255.255')/UDP(dport=7)/Raw(load='\xff\xff\xff\xff\xff\xff' + sleeper_mac_str * 16)
+    data = ''.join(['FFFFFFFFFFFF', sleeper_mac_str.replace(":", "") * 16])
+    return Ether(dst="ff:ff:ff:ff:ff:ff")/IP(dst='255.255.255.255')/UDP(dport=7)/Raw(load=data)
 
 class ARPMonitor(threading.Thread):
 
@@ -58,5 +57,11 @@ class ARPMonitor(threading.Thread):
         # evaluates if received ARP packet with dest ip (pkt[ARP].pdst) is in cache
         if ARP in pkt and pkt[ARP].op == 1 and pkt[ARP].pdst in self._arp_cache:
             # If found in arp_cache, then try to wake up by sending a WoL.
-            magic_pkt = make_magic(mac_to_string(self._arp_cache[pkt[ARP].pdst]))
-            sendp(magic_pkt)
+
+            # Use scapy.route to figure out which interface would be used for reaching the host's
+            # IP address (since we can't find out which interface the ARP packet came from...)
+            route = conf.route.route(pkt[ARP].pdst)
+            iface = route[0]
+
+            magic_pkt = make_magic(self._arp_cache[pkt[ARP].pdst])
+            sendp(magic_pkt, iface = iface)

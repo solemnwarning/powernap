@@ -34,9 +34,9 @@ from powerwake import powerwake
 # Initialize powerwake. This initialization loads the config file.
 try:
     powerwake = powerwake.PowerWake()
-    pass
-except:
-    print("Unable to initialize PowerNap Server")
+except Exception as e:
+    logging.error("Unable to initialize PowerNap Server")
+    logging.exception(e)
     sys.exit(1)
 
 # Define globals
@@ -63,16 +63,14 @@ def establish_lock():
         f.write(str(os.getpid()))
         f.close()
         # Set signal handlers
-        signal.signal(signal.SIGHUP, signal_handler)
-        signal.signal(signal.SIGINT, signal_handler)
-        signal.signal(signal.SIGQUIT, signal_handler)
-        signal.signal(signal.SIGTERM, signal_handler)
+        signal.signal(signal.SIGINT, stop_signal)
+        signal.signal(signal.SIGTERM, stop_signal)
         signal.signal(signal.SIGIO, signal.SIG_IGN)
 
 running = True
 
 # Clean up lock file on termination signals
-def signal_handler(signal, frame):
+def stop_signal(signal, frame):
     global running
 
     logging.info("Stopping %s" % powerwake.PKG)
@@ -87,8 +85,6 @@ def powerwaked_loop():
         for ip, mac in monitor._arp_cache.items():
             logging.debug("  Monitoring %s - %s" % (ip, mac))
         monitor.start()
-
-    users_warned = False
 
     while running:
         time.sleep(1)

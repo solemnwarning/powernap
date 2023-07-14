@@ -18,7 +18,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import configparser, sys, re, os
+import configparser, sys, re, os, logging
 from .monitors import ARPMonitor
 
 class PowerWake:
@@ -36,28 +36,41 @@ class PowerWake:
         cfg = configparser.ConfigParser()
         cfg.read(self.CONFIG)
 
-        try:
-            # Load items in DEFAULT section
-            defaults = cfg.items(self.PKG)
-            for items in defaults:
-                self.set_default_values(items[0], items[1])
+        arp_monitor = {}
 
-            monitors_config = cfg.sections()
-            for monitor in monitors_config:
-                for items in cfg.items(monitor):
-                    self.load_monitors_config(monitor, items)
-        except:
-            pass
+        for section_name in cfg.sections():
+            # [powerwake]
+            # debug = yes
+            # log = /var/log/powerwaked.log
+            if section_name == "powerwake":
+                for (name, value) in cfg.items(section_name):
+                    if name == "debug":
+                        self.DEBUG = (value == "y" or value == "yes")
+                    elif name == "log":
+                        self.LOG = value
+                    else:
+                        raise Exception("Unexpected value '" + name + "' in [" + self.PKG + "] section")
 
-    def set_default_values(self, var, value):
-        if var == "debug":
-            self.DEBUG = eval(value)
-        elif var == "log":
-            self.LOG = value
+            # [ARPMonitor]
+            # file = /etc/powernap/powerwaked.ARPMonitor.ethers
+            # a.b.c.d = aa:bb:cc:dd:ee:ff
+            elif section_name == "ARPMonitor":
+                for (name, value) in cfg.items(section_name):
+                    if name == "file":
+                        file_ip_to_mac = self.get_monitored_hosts(value)
+                        arp_monitor = { **arp_monitor, **file_ip_to_mac }
+                    elif self.is_ip(name):
+                        if self.is_mac(value):
+                            arp_monitor[name] = value
+                        else:
+                            raise Exception("Unexpected value '" + value + "' in [ARPMonitor] section (expected a MAC address)")
+                    else:
+                        raise Exception("Unexpected value '" + name + "' in [ARPMonitor] section (expected 'file' or an IP address")
+            else:
+                raise Exception("Unexpected [" + section_name + "] section in " + self.CONFIG)
 
-    def load_monitors_config(self, monitor, items):
-        if monitor == "ARPMonitor" and (items[1] == "y" or items[1] == "yes"):
-            self.MONITORS.append({"monitor":monitor, "cache":self.get_monitored_hosts(monitor.lower())})
+        if arp_monitor:
+            self.MONITORS.append({"monitor":"ARPMonitor", "cache":arp_monitor})
 
     def get_monitors(self):
         monitor = []
@@ -68,33 +81,22 @@ class PowerWake:
 
         return monitor
 
-    def get_monitored_hosts(self, monitor):
+    def get_monitored_hosts(self, filename):
         host_to_mac = {}
-        for file in ["/etc/powernap/powerwaked.%s.ethers" % monitor]:
-            if os.path.exists(file):
-                f = open(file, 'r')
-                for i in f.readlines():
-                    try:
-                        (m, h) = i.split()
-                        host_to_mac[h] = m
-                    except:
-                        pass
-                f.close()
+        if os.path.exists(filename):
+            f = open(filename, 'r')
+            for i in f.readlines():
+                (m, h) = i.split()
+                host_to_mac[h] = m
+            f.close()
         return host_to_mac
 
-    def set_monitored_hosts(self, host_to_mac, monitor):
-        path = ["/etc/powernap/powerwaked.%s.ethers" % monitor]
-        for file in path:
-            if not os.path.exists(file):
-                f = open(file, 'a')
-                f.close()
-        for file in ["/etc/powernap/powerwaked.%s.ethers" % monitor]:
-            if os.access(file, os.W_OK):
-                f = open(file, 'w')
-                for h in host_to_mac:
-                    if self.is_mac(host_to_mac[h]):
-                        f.write("%s %s\n" % (host_to_mac[h], h))
-                f.close()
+    def set_monitored_hosts(self, host_to_mac, filename):
+        f = open(filename, 'w')
+        for h in host_to_mac:
+            if self.is_mac(host_to_mac[h]):
+                f.write("%s %s\n" % (host_to_mac[h], h))
+        f.close()
 
     def get_mac_or_ip_from_arp(self, host):
         mac_or_ip = None

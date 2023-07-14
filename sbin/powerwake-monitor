@@ -35,9 +35,9 @@ def info(info):
     print(" INFO: %s" % info)
 
 # Add IP to monitor
-def add_host_to_monitor(powerwake, host, macaddr, monitor):
+def add_host_to_monitor(powerwake, host, macaddr, monitor, monitor_filename):
     # obtain the list of monitored machines
-    host_to_mac = powerwake.get_monitored_hosts(monitor.lower())
+    host_to_mac = powerwake.get_monitored_hosts(monitor_filename)
     for ip, mac in host_to_mac.items():
         if host == ip:
             info("Updating information for [%s] in [%s] monitor" % (host, monitor))
@@ -45,7 +45,7 @@ def add_host_to_monitor(powerwake, host, macaddr, monitor):
             if not mac:
                 error("Could not automatically determine MAC address for [%s]. Update cancelled." % host)
             host_to_mac[host] = mac
-            powerwake.set_monitored_hosts(host_to_mac, monitor)
+            powerwake.set_monitored_hosts(host_to_mac, monitor_filename)
             return
 
     # add new
@@ -69,20 +69,20 @@ def add_host_to_monitor(powerwake, host, macaddr, monitor):
         info("Adding [%s - %s] to monitored hosts for [%s] monitor" % (host, macaddr, monitor))
         host_to_mac[host] = macaddr
 
-    powerwake.set_monitored_hosts(host_to_mac, monitor)
+    powerwake.set_monitored_hosts(host_to_mac, monitor_filename)
 
-def delete_host_from_monitor(powerwake, host, monitor):
-    host_to_mac = powerwake.get_monitored_hosts(monitor.lower())
+def delete_host_from_monitor(powerwake, host, monitor, monitor_filename):
+    host_to_mac = powerwake.get_monitored_hosts(monitor_filename)
     for ip, mac in host_to_mac.items():
         if host == ip or host == mac:
             info("Deleting %s from [%s] monitor" % (ip, monitor))
             del host_to_mac[ip]
-            powerwake.set_monitored_hosts(host_to_mac, monitor)
+            powerwake.set_monitored_hosts(host_to_mac, monitor_filename)
             break
  
 # List IP's to monitor
-def list_monitored_hosts(powerwake, monitor):
-    hosts = powerwake.get_monitored_hosts(monitor.lower())
+def list_monitored_hosts(powerwake, monitor, monitor_filename):
+    hosts = powerwake.get_monitored_hosts(monitor_filename)
     print("          HOST       -        MAC")
     try:
         for ip, mac in hosts.items():
@@ -117,7 +117,7 @@ if __name__ == '__main__':
     parser.add_option('-c', '--mac', action='store', type='string', dest='mac',
                       help='specify MAC address', metavar='MAC', default=None)
     parser.add_option('-m', '--monitor', action='store', type='string', dest='monitor',
-                      help='specify monitor to add host', metavar='MONITOR', default='general')
+                      help='specify monitor to add host', metavar='MONITOR', default='ARPMonitor')
     parser.add_option('-l', '--list', action='store_true', dest='list', help='List monitored hosts')
     parser.add_option('-o', '--list-monitors', action='store_true', dest='list_monitors', help='List enabled monitors')
 
@@ -135,17 +135,19 @@ if __name__ == '__main__':
         error("Options -e (--enable) and -d (--disable) are mutually exclusive")
         sys.exit(1)
 
+    monitor_filename = "/etc/powernap/powerwaked." + opt.monitor + ".ethers"
+
     if opt.add:
         hasOptions = True
-        add_host_to_monitor(powerwake, opt.add, opt.mac, opt.monitor)
+        add_host_to_monitor(powerwake, opt.add, opt.mac, opt.monitor, monitor_filename)
 
     if opt.delete:
         hasOptions = True
-        delete_host_from_monitor(powerwake, opt.delete, opt.monitor)
+        delete_host_from_monitor(powerwake, opt.delete, opt.monitor, monitor_filename)
 
     if opt.list:
         hasOptions = True
-        list_monitored_hosts(powerwake, opt.monitor)
+        list_monitored_hosts(powerwake, opt.monitor, monitor_filename)
 
     if opt.list_monitors:
         hasOptions = True

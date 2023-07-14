@@ -33,7 +33,7 @@ from powerwake import powerwake
 
 # Initialize powerwake. This initialization loads the config file.
 try:
-    powerwake = powerwake.PowerWake()
+    powerwake = powerwake.PowerWake("/etc/powernap/powerwaked.conf")
 except Exception as e:
     logging.error("Unable to initialize PowerNap Server")
     logging.exception(e)

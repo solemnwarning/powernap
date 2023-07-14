@@ -23,18 +23,17 @@ from .monitors import ARPMonitor
 
 class PowerWake:
 
-    def __init__(self):
+    def __init__(self, config_filename):
         self.PKG = "powerwake"
-        self.CONFIG = "/etc/powernap/powerwaked.conf"
         self.DEBUG = False
         self.LOG = ""
         self.MONITORS = []
         # Load default config file (/etc/powernap/config)
-        self.load_config_file()
+        self.load_config_file(config_filename)
 
-    def load_config_file(self):
+    def load_config_file(self, config_filename):
         cfg = configparser.ConfigParser()
-        cfg.read(self.CONFIG)
+        cfg.read(config_filename)
 
         arp_monitor = {}
 
@@ -49,7 +48,7 @@ class PowerWake:
                     elif name == "log":
                         self.LOG = value
                     else:
-                        raise Exception("Unexpected value '" + name + "' in [" + self.PKG + "] section")
+                        raise Exception("Unexpected value '" + name + "' in [" + self.PKG + "] section in " + config_filename)
 
             # [ARPMonitor]
             # file = /etc/powernap/powerwaked.ARPMonitor.ethers
@@ -58,16 +57,17 @@ class PowerWake:
                 for (name, value) in cfg.items(section_name):
                     if name == "file":
                         file_ip_to_mac = self.get_monitored_hosts(value)
-                        arp_monitor = { **arp_monitor, **file_ip_to_mac }
+                        for (ip, mac) in file_ip_to_mac.items():
+                            arp_monitor[ip] = self.normalise_mac(mac)
                     elif self.is_ip(name):
                         if self.is_mac(value):
-                            arp_monitor[name] = value
+                            arp_monitor[name] = self.normalise_mac(value)
                         else:
-                            raise Exception("Unexpected value '" + value + "' in [ARPMonitor] section (expected a MAC address)")
+                            raise Exception("Unexpected value '" + value + "' in [ARPMonitor] section (expected a MAC address) in " + config_filename)
                     else:
-                        raise Exception("Unexpected value '" + name + "' in [ARPMonitor] section (expected 'file' or an IP address")
+                        raise Exception("Unexpected value '" + name + "' in [ARPMonitor] section (expected 'file' or an IP address) in " + config_filename)
             else:
-                raise Exception("Unexpected [" + section_name + "] section in " + self.CONFIG)
+                raise Exception("Unexpected [" + section_name + "] section in " + config_filename)
 
         if arp_monitor:
             self.MONITORS.append({"monitor":"ARPMonitor", "cache":arp_monitor})
@@ -122,11 +122,14 @@ class PowerWake:
 
     def is_mac(self, mac):
         r1 = re.compile('^[0-9a-fA-F]{12}$')
-        r2 = re.compile('^[0-9a-fA-F]{2}.[0-9a-fA-F]{2}.[0-9a-fA-F]{2}.[0-9a-fA-F]{2}.[0-9a-fA-F]{2}.[0-9a-fA-F]{2}$')
+        r2 = re.compile('^[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}$')
         if r1.match(mac) or r2.match(mac):
             return 1
         else:
             return 0
+
+    def normalise_mac(self, mac):
+        return mac.replace(":", "").lower()
 
 #### --------------------------------- from powerwake --------------------------------####
 

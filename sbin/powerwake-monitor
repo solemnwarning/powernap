@@ -96,7 +96,7 @@ def list_available_monitors(powerwake):
         print(" [enabled] %+20s" % monitor['monitor'])
 
 if __name__ == '__main__':
-    powerwake = powerwake.PowerWake()
+    powerwake = powerwake.PowerWake("/etc/powernap/powerwaked.conf")
     hasOptions = False
     # Option Parser
     usage = "usage: %prog <parameters>\n\

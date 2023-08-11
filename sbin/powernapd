@@ -200,6 +200,10 @@ def powernapd_loop():
     users_warned = False
     watch_config_timestamp = os.stat(powernap.CONFIG).st_mtime
 
+    # TODO: Stop calling monitor.active() after a shutdown action has been
+    # initiated to prevent PowerWakeMonitor responding to a request when the
+    # system has comitted to going down.
+
     while 1:
         if powernap.WATCH_CONFIG == True:
             if watch_config_timestamp != os.stat(powernap.CONFIG).st_mtime:

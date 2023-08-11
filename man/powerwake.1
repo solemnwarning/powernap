@@ -3,12 +3,18 @@
 powerwake \- smart utilty for remotely waking sleeping systems
 
 .SH SYNOPSIS
-.BI "powerwake [\-b|\-\-broadcast BROADCAST_IP] [\-m|\-\-method METHOD] TARGET_MAC|TARGET_IP|TARGET_HOST"
+.BI "powerwake [\-b|\-\-broadcast IP] [\-p|\-\-port PORT] [-w|--wait] [\-m|\-\-method METHOD] TARGET_MAC|TARGET_IP|TARGET_HOST"
 
 .SH OPTIONS
 .TP
-.B \-b|\-\-broadcast BROADCAST_IP
+.B \-b|\-\-broadcast IP
 Optional parameter specifying the broadcast ip.  If unspecified, the default is 255.255.255.255.
+.TP
+.B \-p|\-\-port PORT
+Optional parameter specifying the broadcast port.  If unspecified, the default is 7.
+.TP
+.B \-w|\-\-wait
+Wait for a response from the remote powernapd daemon to confirm the system is up. Changes the default port to 57748.
 .TP
 .B \-m|\-\-method METHOD
 Currently, 'wol' is the only supported method.

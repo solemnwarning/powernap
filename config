@@ -191,6 +191,12 @@ threshold = n
 [UDPMonitor]
 #udp-1025 = 1025
 
+# The [PowerWakeMonitor] section lists UDP ports on which to listen for
+# (and acknowledge) specially formatted WoL packets send by the powerwake
+# program.
+[PowerWakeMonitor]
+# default = 57748
+
 # The [IOMonitor] section lists all the processes to Monitor for IO
 # activity. A regular expressions is used to find the processes PIDs, which
 # are later used to monitor IO.

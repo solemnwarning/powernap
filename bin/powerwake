@@ -24,16 +24,23 @@ import re
 import socket
 import struct
 import sys
+import time
 import getopt
+import random
 
 global DEBUG, PKG, RC, HOME
 DEBUG = 0
 PKG = "powerwake"
 RC = 0
 HOME = os.getenv("HOME")
-short_opts = 'hb:m:'
-long_opts = ['help', 'broadcast=', 'method=']
-usage_string = "Usage:\n  powerwake [-b|--broadcast BROADCAST_IP] [-m|--method METHOD] TARGET_MAC|TARGET_IP|TARGET_HOST"
+short_opts = 'hb:p:wm:'
+long_opts = ['help', 'broadcast=', 'method=', 'port=', 'wait']
+usage_string = "Usage:\n  powerwake [-b|--broadcast BROADCAST_IP] [-p|--port BROADCAST_PORT] [-w|--wait] [-m|--method METHOD] TARGET_MAC|TARGET_IP|TARGET_HOST"
+
+default_broadcast_port = 7
+
+broadcast_addr = "255.255.255.255";
+broadcast_port = None
 
 # Generic debug function
 def debug(level, msg):
@@ -53,22 +60,58 @@ def warning(msg):
 def info(msg):
     debug(0, "INFO: %s" % msg)
 
-def wakeonlan(mac):
+def wakeonlan(mac, wait_for_ack):
+    global broadcast_addr
+    global broadcast_port
+
     nonhex = re.compile('[^0-9a-fA-F]')
     mac = nonhex.sub('', mac)
     if len(mac) != 12:
         error("Malformed mac address [%s]" % mac)
-    info("Sending magic packet to: [%s]" % mac)
+
     # We should cache this to /var/cache/powerwake/ethers,
     # in case arp entry isn't available next time
-    data = ''.join(['FFFFFFFFFFFF', mac * 16])
-    send_data = bytes.fromhex(data)
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        sock.sendto(send_data, (broadcast, 7))
-    except:
-        error("Network is unreachable")
+
+    # A random nonce is used in the WoL request/reply packets to disambiguate
+    # requests from individual powerwake clients.
+    nonce = random.randint(0, 0xFFFFFFFF)
+
+    data = (bytes("PWERWAKE", "ascii") +
+        nonce.to_bytes(length=4, byteorder='little', signed=False) +
+        bytes.fromhex("FFFFFFFFFFFF") +
+        (bytes.fromhex(mac) * 16))
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(1.0)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+    info("Sending magic packet to: [%s]" % mac)
+    sock.sendto(data, (broadcast_addr, broadcast_port))
+
+    if not wait_for_ack:
+        return
+
+    timeout_at = time.monotonic() + 60.0 # timeout after one minute
+
+    while True:
+        try:
+            packet, remote_addr = sock.recvfrom(1024)
+
+            if (len(packet) == 12 and
+                packet[0:8] == bytes("PWERWAKF", "ascii") and
+                packet[8:12] == data[8:12]):
+                print("Received reply from {}:{} - host is up".format(remote_addr[0], remote_addr[1]))
+                return
+
+        except TimeoutError:
+            pass # recv timeout
+
+        if time.monotonic() >= timeout_at:
+            print("No reply received after 60 seconds", file = sys.stderr)
+            sys.exit(1)
+
+        info("Sending magic packet to: [%s]" % mac)
+        sock.sendto(data, (broadcast_addr, broadcast_port))
 
 def is_ip(ip):
     r1 = re.compile('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
@@ -144,8 +187,8 @@ def get_arp_hash():
 
 if __name__ == '__main__':
     # set up defaults
-    broadcast = '<broadcast>'
     method = 'wol'
+    wait_for_ack = False
 
     # parse getopt options
     try:
@@ -157,17 +200,32 @@ if __name__ == '__main__':
     for name, value in opts:
         if name in ('-b', '--broadcast'):
             if is_ip(value):
-                broadcast = value
+                broadcast_addr = value
             else:
-                error("Value passed to " + name + " is not a valid broadcast address [%s]" % value)
+                error("Value passed to " + name + " is not a valid IP address [%s]" % value)
                 print(usage_string)
                 exit(1)
+
+        elif name in ('-p', '--port'):
+            if value.isdigit() and int(value) <= 65535:
+                broadcast_port = int(value)
+            else:
+                error("Value passed to " + name + " is not a valid port number [%s]" % value)
+                print(usage_string)
+                exit(1)
+
+        elif name in ('-w', '--wait'):
+            default_broadcast_port = 57748
+            wait_for_ack = True
 
         elif name in ('-m', '--method'):
             method = value
         elif name in ('-h', '--help'):
             print(usage_string)
             exit(0)
+
+    if broadcast_port == None:
+        broadcast_port = default_broadcast_port
 
     # if args is less than one, we don't have a host to wake up
     if len(args) < 1:
@@ -203,7 +261,7 @@ if __name__ == '__main__':
                         error("Could not determine the MAC address of [%s]" % i)
                         continue
             if is_mac(m):
-                wakeonlan(m)
+                wakeonlan(m, wait_for_ack)
             else:
                 error("Could not wake host [%s]" % m)
         else:

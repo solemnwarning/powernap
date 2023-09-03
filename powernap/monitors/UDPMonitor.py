@@ -26,11 +26,10 @@ from logging import error, debug, info, warn
 class UDPMonitor (threading.Thread):
 
     # Initialise
-    def __init__ ( self, config ):
+    def __init__ ( self, port ):
         threading.Thread.__init__(self)
-        self._type = config['monitor']
-        self._name = config['name']
-        self._port = config['port']
+        self._type = "udp"
+        self._port = port
         self._running = False
         self._data_received = False
         self._absent_seconds = 0

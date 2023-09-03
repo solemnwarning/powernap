@@ -30,10 +30,9 @@ def find_process(ps, regex):
 class ProcessMonitor():
 
     # Initialise
-    def __init__(self, config):
-        self._type = config['monitor']
-        self._name = config['name']
-        self._regex = re.compile(config['regex'])
+    def __init__(self, regex):
+        self._type = "process"
+        self._regex = regex
         self._absent_seconds = 0
 
     # Check for PIDs

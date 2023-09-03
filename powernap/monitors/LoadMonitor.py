@@ -22,10 +22,9 @@ from logging import error, debug, info, warn
 class LoadMonitor():
 
     # Initialise
-    def __init__(self, config):
-        self._type = config['monitor']
-        self._name = config['name']
-        self._threshold = config['threshold']
+    def __init__(self, threshold):
+        self._type = "load"
+        self._threshold = threshold
         self._absent_seconds = 0
 
     # Check system load

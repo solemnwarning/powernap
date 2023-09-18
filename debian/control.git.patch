@@ -1,0 +1,57 @@
+--- debian/control.orig	2023-09-18 17:41:51.782879849 +0100
++++ debian/control	2023-09-18 17:41:53.174886861 +0100
+@@ -6,7 +6,7 @@
+ Build-Depends: debhelper (>= 13), gettext-base, python3, dh-python
+ Homepage: https://github.com/solemnwarning/powernap
+ 
+-Package: powernap
++Package: powernap-git
+ Architecture: all
+ Depends:
+  ${misc:Depends},
+@@ -15,7 +15,7 @@
+  pm-utils,
+  python3-pytimeparse
+ Recommends: ethtool
+-Enhances: powerwake
++Enhances: powerwake-git
+ Description: reduce the power consumption of a system when inactive
+  PowerNap watches a series of configurable monitors.  When no activity
+  has occurred on any of these monitors for some specified time, PowerNap
+@@ -38,10 +38,10 @@
+  .
+  See /etc/powernap/config for all configurable options and defaults.
+ 
+-Package: powerwake
++Package: powerwake-git
+ Architecture: all
+ Depends: ${misc:Depends}, ${python3:Depends}, debconf (>= 0.5) | debconf-2.0
+-Enhances: powernap
++Enhances: powernap-git
+ Description: remotely wake a napping system
+  PowerWake is a generic mechanism for remotely waking systems.  It is
+  intended to support wake-on-lan, ipmi, and other remote waking mechanisms.
+@@ -49,11 +49,11 @@
+  some handy caching of MAC addresses, such that systems can be awakened by
+  hostname or ip address, in addition to MAC address.
+ 
+-Package: powerwaked
++Package: powerwaked-git
+ Architecture: all
+ Depends: ${misc:Depends}, ${python3:Depends}, debconf (>= 0.5) | debconf-2.0,
+- powerwake-common (= ${binary:Version})
+-Enhances: powerwake
++ powerwake-common-git (= ${binary:Version})
++Enhances: powerwake-git
+ Description: remotely wake a napping system - Server Daemon
+  PowerWake Server is a mechanism to remotely monitor and wake up systems
+  based on manual intervention, or automatic intervention based on a set of
+@@ -66,7 +66,7 @@
+  When activity is received, the monitors will automatically try to wake up
+  if it is in powersave or offline mode.
+ 
+-Package: powerwake-common
++Package: powerwake-common-git
+ Architecture: all
+ Depends: ${misc:Depends}, ${python3:Depends}, debconf (>= 0.5) | debconf-2.0, python3-scapy
+ Description: common library files required by powerwake

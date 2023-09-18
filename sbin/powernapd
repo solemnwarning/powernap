@@ -44,6 +44,8 @@ except:
 global LOCK, CONFIG, MONITORS
 LOCK = "/var/run/%s.pid" % powernap.PKG
 
+SLEEPING = False
+
 # Generic (fatal) error function
 def error(msg):
     logging.error(msg)
@@ -70,8 +72,9 @@ def establish_lock():
         signal.signal(signal.SIGTERM, signal_handler)
         signal.signal(signal.SIGIO, signal.SIG_IGN)
         #signal.signal(signal.SIGIO, input_singal_handler)
-        #signal.signal(signal.SIGUSR1, take_action_handler)
-        #signal.signal(signal.SIGUSR2, take_recover_action_handler)
+
+        signal.signal(signal.SIGUSR1, sleep_handler)
+        signal.signal(signal.SIGUSR2, wake_handler)
 
 # Clean up lock file on termination signals
 def signal_handler(signal, frame):
@@ -80,7 +83,21 @@ def signal_handler(signal, frame):
     logging.info("Stopping %s" % powernap.PKG)
     sys.exit(1)
 
+def sleep_handler(signal, frame):
+    global SLEEPING
+
+    logging.info("Received SIGUSR1 - system is going to sleep")
+    SLEEPING = True
+
+def wake_handler(signal, frame):
+    global SLEEPING
+
+    logging.info("Received SIGUSR1 - system has resumed")
+    SLEEPING = False
+
 def powernapd_loop():
+    global SLEEPING
+
     # Starting the Monitors
     for monitor in MONITORS:
         # logging.debug("Starting [%s:%s]" % (monitor._type, monitor._name))
@@ -89,9 +106,7 @@ def powernapd_loop():
     action_manager = ActionManager(powernap.config["actions"], powernap.ACTIONS_PATH)
     action_manager.update(True, time.monotonic())
 
-    # TODO: Stop calling monitor.active() after a shutdown action has been
-    # initiated to prevent PowerWakeMonitor responding to a request when the
-    # system has comitted to going down.
+    was_sleeping = False
 
     while 1:
         #if powernap.WATCH_CONFIG == True:
@@ -104,14 +119,23 @@ def powernapd_loop():
         logging.debug("Sleeping [%d] seconds" % powernap.INTERVAL_SECONDS)
         time.sleep(powernap.INTERVAL_SECONDS)
 
-        activity_detected = False
+        if SLEEPING:
+            was_sleeping = True
+        else:
+            activity_detected = False
 
-        for monitor in MONITORS:
-            #logging.debug("  Looking for [%s] %s" % (monitor._name, monitor._type))
-            if monitor.active():
+            for monitor in MONITORS:
+                #logging.debug("  Looking for [%s] %s" % (monitor._name, monitor._type))
+                if monitor.active():
+                    activity_detected = True
+
+            # If the system just woke up from suspend, ensure ActionManager
+            # sees some activity so we don't immediately go back to sleep.
+            if was_sleeping:
                 activity_detected = True
+                was_sleeping = False
 
-        action_manager.update(activity_detected, time.monotonic())
+            action_manager.update(activity_detected, time.monotonic())
 
 
 # "Forking a Daemon Process on Unix" from The Python Cookbook

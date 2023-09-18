@@ -1,0 +1,17 @@
+#!/bin/bash
+# Signal powernapd when the system enters/leaves suspend.
+
+set -e
+
+if [ -e "/var/run/powernap.pid" ]
+then
+	POWERNAPD_PID="$(cat "/var/run/powernap.pid")"
+	
+	if [ "$1" = "pre" ]
+	then
+		kill -USR1 "$POWERNAPD_PID"
+	elif [ "$1" = "post" ]
+	then
+		kill -USR2 "$POWERNAPD_PID"
+	fi
+fi

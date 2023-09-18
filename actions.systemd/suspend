@@ -6,7 +6,11 @@ set -e
 if [ "$1" = "true" ]
 then
 	systemctl suspend
-	powernapctl suspending
+	
+	if [ -n "$POWERNAP_PID" ]
+	then
+		kill -USR1 "$POWERNAP_PID"
+	fi
 elif [ "$1" = "false" ]
 then
 	# Do nothing

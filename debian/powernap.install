@@ -5,3 +5,4 @@ powernapd.conf usr/share/powernap
 powernapd.conf etc/powernap
 actions.systemd/* etc/powernap/actions/
 debian/powernap.override /etc/init
+systemd-sleep-hook/powernapd /usr/lib/systemd/system-sleep/

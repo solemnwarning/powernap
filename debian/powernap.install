@@ -1,8 +1,4 @@
-sbin/powernap usr/sbin
 sbin/powernapd usr/sbin
-sbin/powernap-now usr/sbin
-sbin/powerwake-now usr/sbin
-sbin/powernap-action usr/sbin
 powernap-ethtool usr/share/powernap/
 bin/powernap_calculator usr/bin
 powernapd.conf usr/share/powernap

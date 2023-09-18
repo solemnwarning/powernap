@@ -6,7 +6,6 @@ After=network.target
 Type=simple
 ExecStartPre=/usr/share/powernap/powernap-ethtool
 ExecStart=/usr/sbin/powernapd
-ExecStop=-/usr/sbin/powerwake-now
 
 [Install]
 WantedBy=multi-user.target

@@ -63,7 +63,7 @@ done
 
 # Installing all super user binaries in /usr/sbin
 pushd $RPM_BUILD_ROOT/usr/sbin
-for x in powernap powernapd powernap-now powernap-action powerwake-now ; do
+for x in powernapd ; do
 install -D %_topdir/BUILD/powernap-%{version}/sbin/$x $RPM_BUILD_ROOT/usr/sbin
 done
 popd
@@ -116,7 +116,7 @@ popd
 # Installing man pages in man8 directory assuming that the source is present in
 # %_topdir/BUILD/powernap-%{version} directory
 pushd $RPM_BUILD_ROOT/usr/share/man/man8
-for x in powernap.8 powernapd.8 powernap-now.8 powerwake-now.8 powernap-action.8 ; do
+for x in powernapd.8 ; do
 gzip %_topdir/BUILD/powernap-%{version}/man/$x
 install -D %_topdir/BUILD/powernap-%{version}/man/$x.gz $x.gz
 done
@@ -144,19 +144,11 @@ popd
 # Files section contains list of the files that are part of the rpm
 %files -n powernap
 %defattr(-, root, root, 0555)
-/usr/sbin/powernap
 /usr/sbin/powernapd
-/usr/sbin/powernap-now
-/usr/sbin/powernap-action
-/usr/sbin/powerwake-now
 /usr/sbin/powernap_calculator
 /etc/powernap/action
 /etc/powernap/config
 /usr/share/man/man8/powernapd.8.gz
-/usr/share/man/man8/powernap-now.8.gz
-/usr/share/man/man8/powernap.8.gz
-/usr/share/man/man8/powerwake-now.8.gz
-/usr/share/man/man8/powernap-action.8.gz
 /usr/share/man/man1/powernap_calculator.1.gz
 
 # Files to be added in powernap-common rpm

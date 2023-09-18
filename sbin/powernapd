@@ -43,7 +43,6 @@ except:
 # Define globals
 global LOCK, CONFIG, MONITORS
 LOCK = "/var/run/%s.pid" % powernap.PKG
-POWERSAVE_FLAG = "/var/run/%s/powersave" % powernap.PKG
 
 # Generic (fatal) error function
 def error(msg):
@@ -80,11 +79,6 @@ def signal_handler(signal, frame):
         os.remove(LOCK)
     logging.info("Stopping %s" % powernap.PKG)
     sys.exit(1)
-
-# Basic touch function
-def touch(fname, times = None):
-    with open(fname, 'a'):
-        os.utime(fname, times)
 
 def powernapd_loop():
     # Starting the Monitors

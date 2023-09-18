@@ -5,7 +5,7 @@ sbin/powerwake-now usr/sbin
 sbin/powernap-action usr/sbin
 powernap-ethtool usr/share/powernap/
 bin/powernap_calculator usr/bin
-config usr/share/powernap
-config etc/powernap
-action etc/powernap
+powernapd.conf usr/share/powernap
+powernapd.conf etc/powernap
+actions.systemd/* etc/powernap/actions/
 debian/powernap.override /etc/init

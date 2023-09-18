@@ -1,0 +1,17 @@
+#!/bin/sh
+# powernap action to shut down the system using `systemctl poweroff`
+
+set -e
+
+if [ "$1" = "true" ]
+then
+	systemctl poweroff
+	powernapctl suspending
+elif [ "$1" = "false" ]
+then
+	# Do nothing
+	true
+else
+	echo "Usage: $0 <true|false>" 2>&1
+	exit 64 # EX_USAGE
+fi

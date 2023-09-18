@@ -28,23 +28,22 @@ from logging import error, debug, info, warn
 class InputMonitor ( threading.Thread ):
 
     # Initialise
-    def __init__ ( self, config ):
+    def __init__ ( self, mouse_or_kbd ):
         threading.Thread.__init__(self)
-        self._type = config['monitor']
-        self._name = config['name']
+        self._type = mouse_or_kbd
         self._absent_seconds = 0
         self._input_received = False
 
         # If regex is in the way of by-id/regex, then path is changed to /dev/input/by-id
-        if os.path.split(config['regex'])[0]:
-            self._path = os.path.join("/dev/input", os.path.dirname(config['regex']))
-            self._regex = re.compile(os.path.basename(config['regex']))
-        elif config["regex"] == "kbd":
+        if os.path.split(mouse_or_kbd)[0]:
+            self._path = os.path.join("/dev/input", os.path.dirname(mouse_or_kbd))
+            self._regex = re.compile(os.path.basename(mouse_or_kbd))
+        elif mouse_or_kbd == "kbd":
             self._path = "/dev/input/by-id"
-            self._regex = re.compile(config['regex'])
+            self._regex = re.compile(mouse_or_kbd)
         else:
             self._path = "/dev/input"
-            self._regex = re.compile(config['regex'])
+            self._regex = re.compile(mouse_or_kbd)
 
         # Register for directory events / setup input watches
         self._inputs = {}

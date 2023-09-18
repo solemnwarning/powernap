@@ -63,11 +63,10 @@ def find_pids_status(regex):
 class IOMonitor ():
 
     # Initialise
-    def __init__ ( self, config ):
+    def __init__ ( self, regex ):
         self._iocounts = {}
-        self._type = config['monitor']
-        self._name = config["name"]
-        self._regex = re.compile(config['regex'])
+        self._type = "process-io"
+        self._regex = regex
         self._absent_seconds = 0
 
     def start(self):

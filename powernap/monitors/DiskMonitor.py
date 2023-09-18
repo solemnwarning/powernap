@@ -25,9 +25,9 @@ from logging import error, debug, info, warn
 class DiskMonitor ():
 
     # Initialise
-    def __init__(self, config):
-        self._type = config['monitor']
-        self._name = config['name']
+    def __init__(self, device):
+        self._type = "disk"
+        self._name = device
         self._regex_state = re.compile(r"^\s+drive\s+state\s+is:\s+(\S+)")
         self._regex_not_found = re.compile(r"^.*No\s+such\s+file")
         self._absent_seconds = 0

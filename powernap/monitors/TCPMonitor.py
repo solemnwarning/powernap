@@ -30,13 +30,10 @@ def find_connection(netstat, regexes):
 class TCPMonitor():
 
     # Initialise
-    def __init__(self, config):
-        self._type = config['monitor']
-        self._name = config['name']
+    def __init__(self, port_start, port_end):
+        self._type = "tcp"
         self._absent_seconds = 0
         self._regexes = []
-        port_start = int(config['port'].split("-")[0].strip())
-        port_end = int(config['port'].split("-")[-1].strip()) + 1 # Add one to use correctly in range
         for port in range(port_start, port_end):
             self._regexes.append(re.compile("^tcp.*\W.*:%s\W.*ESTABLISHED$" % port))
 

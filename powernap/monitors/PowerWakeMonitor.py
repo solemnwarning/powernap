@@ -50,11 +50,10 @@ def get_local_macs():
 #   listen for data on a UDP socket (typically WOL packets)
 class PowerWakeMonitor (threading.Thread):
     # Initialise
-    def __init__ ( self, config ):
+    def __init__ ( self, port ):
         threading.Thread.__init__(self)
-        self._type = config['monitor']
-        self._name = config['name']
-        self._port = config['port']
+        self._type = "powerwake"
+        self._port = port
         self._running = False
         self._absent_seconds = 0
         self._pending_requests = []

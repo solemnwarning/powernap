@@ -64,11 +64,10 @@ def get_eths_mac_wol_info():
 class WoLMonitor (threading.Thread):
 
     # Initialise
-    def __init__ ( self, config ):
+    def __init__ ( self, port ):
         threading.Thread.__init__(self)
-        self._type = config['monitor']
-        self._name = config['name']
-        self._port = config['port']
+        self._type = "wol"
+        self._port = port
         self._host = '' # Bind to all Interfaces
         self._running = False
         self._data_received = False

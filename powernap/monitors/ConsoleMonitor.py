@@ -43,9 +43,8 @@ def get_interrupts():
 class ConsoleMonitor():
 
     # Initialise
-    def __init__(self, config):
-        self._type = config['monitor']
-        self._name = config['name']
+    def __init__(self):
+        self._type = "console"
         self._absent_seconds = 0
         self._time, self._irqs = get_console_activity()
 

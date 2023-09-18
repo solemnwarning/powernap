@@ -1,0 +1,16 @@
+#!/bin/sh
+# powernap action to put the system into a low-power state using `pm-powersave`
+
+set -e
+
+if [ "$1" = "true" ]
+then
+	pm-powersave true
+elif [ "$1" = "false" ]
+then
+	pm-powersave false
+	true
+else
+	echo "Usage: $0 <true|false>" 2>&1
+	exit 64 # EX_USAGE
+fi

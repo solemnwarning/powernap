@@ -1,5 +1,5 @@
---- debian/control.orig	2023-09-18 17:41:51.782879849 +0100
-+++ debian/control	2023-09-18 17:41:53.174886861 +0100
+--- a/debian/control	2023-09-18 17:41:51.782879849 +0100
++++ b/debian/control	2023-09-18 17:41:53.174886861 +0100
 @@ -6,7 +6,7 @@
  Build-Depends: debhelper (>= 13), gettext-base, python3, dh-python
  Homepage: https://github.com/solemnwarning/powernap

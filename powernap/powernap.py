@@ -19,14 +19,16 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys, re, os
+
 from .monitors import ProcessMonitor, LoadMonitor, InputMonitor, TCPMonitor, UDPMonitor, IOMonitor, WoLMonitor, ConsoleMonitor, DiskMonitor, PowerWakeMonitor
-from ConfigReader import ConfigReader
+from .ConfigReader import ConfigReader
 
 class PowerNap:
 
     def __init__(self):
         self.PKG = "powernap"
-        self.CONFIG_FILE = "/etc/powernap/config"
+        self.CONFIG_FILE = "/etc/powernap/powernapd.conf"
+        self.ACTIONS_PATH = "/etc/powernap/actions/"
 
         # Load names of scripts from /etc/powernap/actions/
         self.actions = self.enum_actions()
@@ -38,7 +40,7 @@ class PowerNap:
         self.LOG = self.config["log"]
 
     def enum_actions(self):
-        return os.listdir("/etc/powernap/actions/")
+        return os.listdir(self.ACTIONS_PATH)
 
     def load_config_file(self):
         cr = ConfigReader(self.actions)

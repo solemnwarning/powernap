@@ -64,12 +64,12 @@ class ActionManager:
                 action["warned"] = False
 
     def issue_warning(self, action_name, time_remain_secs):
-        msg = f"powernapd will perform the {action_name} action in {time_remain_secs} due to system inactivity"
-        subprocess.run("wall", stdin = msg, text = True)
+        msg = f"powernapd will perform the {action_name} action in {int(time_remain_secs)} seconds due to system inactivity"
+        subprocess.run([ "wall" ], input = msg, text = True)
 
     def rescind_warning(self, action_name):
         msg = f"powernapd will no longer perform the {action_name} action in due to system activity"
-        subprocess.run("wall", stdin = msg, text = True)
+        subprocess.run([ "wall" ], input = msg, text = True)
 
     def exec_action(self, action_name, param):
         action_env = os.environ.copy()

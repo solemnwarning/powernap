@@ -38,7 +38,7 @@ class InputMonitor ( threading.Thread ):
         if os.path.split(mouse_or_kbd)[0]:
             self._path = os.path.join("/dev/input", os.path.dirname(mouse_or_kbd))
             self._regex = re.compile(os.path.basename(mouse_or_kbd))
-        elif config["regex"] == "kbd":
+        elif mouse_or_kbd == "kbd":
             self._path = "/dev/input/by-id"
             self._regex = re.compile(mouse_or_kbd)
         else:

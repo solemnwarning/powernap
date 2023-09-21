@@ -135,5 +135,55 @@ class TestPowerNapPWMonitorOutOfRangePort(unittest.TestCase):
 		with self.assertRaisesRegex(Exception, f"Invalid port number 1000000 at {config.name} line 1") as e:
 			cr.read_config(config.name)
 
+class TestPowerNapUsersMonitor(unittest.TestCase):
+	def runTest(self):
+		config = tempfile.NamedTemporaryFile()
+		config.file.write(
+			b"monitor users")
+		config.file.flush()
+		
+		cr = ConfigReader([ "poweroff", "suspend", "powersave" ])
+		c = cr.read_config(config.name)
+		
+		self.assertEqual(c["monitors"], [
+			{ "type": "users", "max_idle_secs": None } ])
+
+class TestPowerNapUsersMonitorMaxIdle(unittest.TestCase):
+	def runTest(self):
+		config = tempfile.NamedTemporaryFile()
+		config.file.write(
+			b"monitor users max-idle 30m")
+		config.file.flush()
+		
+		cr = ConfigReader([ "poweroff", "suspend", "powersave" ])
+		c = cr.read_config(config.name)
+		
+		self.assertEqual(c["monitors"], [
+			{ "type": "users", "max_idle_secs": 1800 } ])
+
+class TestPowerNapUsersMonitorMaxIdleNoDuration(unittest.TestCase):
+	def runTest(self):
+		config = tempfile.NamedTemporaryFile()
+		config.file.write(
+			b"monitor users max-idle")
+		config.file.flush()
+		
+		cr = ConfigReader([ "poweroff", "suspend", "powersave" ])
+		
+		with self.assertRaisesRegex(Exception, f"Expected a time duration \\(e.g. 1m\\) after 'max-idle' at {config.name} line 1") as e:
+			cr.read_config(config.name)
+
+class TestPowerNapUsersMonitorMaxIdleTwice(unittest.TestCase):
+	def runTest(self):
+		config = tempfile.NamedTemporaryFile()
+		config.file.write(
+			b"monitor users max-idle 1m max-idle 30m")
+		config.file.flush()
+		
+		cr = ConfigReader([ "poweroff", "suspend", "powersave" ])
+		
+		with self.assertRaisesRegex(Exception, f"Unexpected 'max-idle 30m' after '1m' at {config.name} line 1") as e:
+			cr.read_config(config.name)
+
 if __name__ == '__main__':
 	unittest.main()

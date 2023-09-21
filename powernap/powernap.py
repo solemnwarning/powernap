@@ -20,7 +20,7 @@
 
 import sys, re, os
 
-from .monitors import ProcessMonitor, LoadMonitor, InputMonitor, TCPMonitor, UDPMonitor, IOMonitor, WoLMonitor, ConsoleMonitor, DiskMonitor, PowerWakeMonitor
+from .monitors import ProcessMonitor, LoadMonitor, InputMonitor, TCPMonitor, UDPMonitor, IOMonitor, WoLMonitor, ConsoleMonitor, DiskMonitor, PowerWakeMonitor, LoggedInUsersMonitor
 from .ConfigReader import ConfigReader
 
 class PowerNap:
@@ -59,6 +59,7 @@ class PowerNap:
             if config["type"] == "powerwake":   p = PowerWakeMonitor.PowerWakeMonitor(config["port"])
             if config["type"] == "tcp":         p = TCPMonitor.TCPMonitor(config["port"], config["port"])
             if config["type"] == "udp":         p = UDPMonitor.UDPMonitor(config["port"])
+            if config["type"] == "users":       p = LoggedInUsersMonitor.LoggedInUsersMonitor(config["max_idle_secs"])
             if config["type"] == "wol":         p = WoLMonitor.WoLMonitor(config["port"])
 
             monitor.append(p)

@@ -31,7 +31,7 @@ COMMENT = re.compile("^#");
 # _shift_word("")            => [ "", "" ]
 #
 def _shift_word(words):
-    return (words.split(None, 1) + [""])[:2]
+    return (words.split(None, 1) + ["", ""])[:2]
 
 class ConfigReader:
     def __init__(self, valid_actions):
@@ -109,6 +109,7 @@ class ConfigReader:
             "process":     self._parse_process_monitor,
             "process-io":  self._parse_process_io_monitor,
             "tcp":         self._parse_port_monitor_func("tcp", None),
+            "users":       self._parse_users_monitor,
             "udp":         self._parse_port_monitor_func("udp", None),
             "wol":         self._parse_port_monitor_func("wol", None),
         }
@@ -177,6 +178,26 @@ class ConfigReader:
             raise ParseError(f"Invalid regular expression after 'process-io': {e}")
 
         return { "type": "process-io", "regex": proc_re }
+
+    def _parse_users_monitor(self, monitor_parameters):
+        next_word, monitor_parameters = _shift_word(monitor_parameters)
+
+        max_idle_secs = None
+
+        if next_word == "":
+            pass
+
+        elif next_word == "max-idle":
+            [ max_idle_t, monitor_parameters ] = _shift_word(monitor_parameters)
+            max_idle_secs = self._parse_time_duration(max_idle_t, "max-idle")
+
+            if monitor_parameters != "":
+                raise ParseError(f"Unexpected '{monitor_parameters}' after '{max_idle_t}'")
+
+        else:
+            raise ParseError(f"Unexpected '{next_word}' after 'users'")
+
+        return { "type": "users", "max_idle_secs": max_idle_secs }
 
     def _parse_port_monitor_func(self, monitor_type, default_port):
         def func(monitor_parameters):

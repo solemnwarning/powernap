@@ -126,8 +126,12 @@ def powernapd_loop():
 
             for monitor in MONITORS:
                 #logging.debug("  Looking for [%s] %s" % (monitor._name, monitor._type))
+                logging.debug(f"Checking {monitor._type} monitor...")
                 if monitor.active():
+                    logging.debug("active")
                     activity_detected = True
+                else:
+                    logging.debug("inactive")
 
             # If the system just woke up from suspend, ensure ActionManager
             # sees some activity so we don't immediately go back to sleep.

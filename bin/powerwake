@@ -76,8 +76,8 @@ EX_TEMPFAIL    = 75
 
 PKG = "powerwake"
 HOME = os.getenv("HOME")
-short_opts = 'hb:p:wU:P:I'
-long_opts = ['help', 'broadcast=', 'ipmi', 'port=', 'wait', 'ipmi-username=', 'ipmi-password=']
+short_opts = 'hb:p:wU:P:It:'
+long_opts = ['help', 'broadcast=', 'ipmi', 'port=', 'wait', 'ipmi-username=', 'ipmi-password=', 'timeout=']
 usage_string = """Usage: powerwake [OPTIONS] <TARGET_MAC|TARGET_IP|TARGET_HOST>
 
 Options:
@@ -86,6 +86,8 @@ Options:
   -p, --port <port>               Sets the port to send WoL packets to
   -w, --wait                      Wait for the target system to finish booting
                                   (requires powernapd to be configured)
+  -t, --timeout <seconds>         How long to wait for host to start up
+                                  (only applicable to --wait, defaults to 60)
   -I, --ipmi                      Power on the system using IPMI
   -U, --ipmi-username <username>  Sets the username when using --ipmi
   -P, --ipmi-password <password>  Sets the password when using --ipmi
@@ -106,10 +108,12 @@ default_broadcast_port = 7
 
 broadcast_addr = None
 broadcast_port = None
+wait_timeout = 60
 
 def wakeonlan(mac, wait_for_ack):
     global broadcast_addr
     global broadcast_port
+    global wait_timeout
 
     pwr = PowerWakeRequest(mac)
 
@@ -117,7 +121,7 @@ def wakeonlan(mac, wait_for_ack):
     sock.settimeout(1.0)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
-    timeout_at = time.monotonic() + 60.0 # timeout after one minute
+    timeout_at = time.monotonic() + wait_timeout
 
     while True:
         # print("Sending magic packet to: [%s]" % mac)
@@ -137,12 +141,13 @@ def wakeonlan(mac, wait_for_ack):
             pass # recv timeout
 
         if time.monotonic() >= timeout_at:
-            print("No reply received after 60 seconds", file = sys.stderr)
+            print("No reply received after %d seconds" % wait_timeout, file = sys.stderr)
             sys.exit(EX_TEMPFAIL)
 
 def ipmiwake(ipmi_host=None, ipmi_port=None, ipmi_username=None, ipmi_password=None):
     global broadcast_addr
     global broadcast_port
+    global wait_timeout
 
     ipmi = None
 
@@ -165,7 +170,7 @@ def ipmiwake(ipmi_host=None, ipmi_port=None, ipmi_username=None, ipmi_password=N
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.settimeout(1.0)
 
-    timeout_at = time.monotonic() + 60.0 # timeout after one minute
+    timeout_at = time.monotonic() + wait_timeout
 
     while True:
         chassis_status = ipmi.get_chassis_status()
@@ -194,7 +199,7 @@ def ipmiwake(ipmi_host=None, ipmi_port=None, ipmi_username=None, ipmi_password=N
             pass # recv timeout
 
         if time.monotonic() >= timeout_at:
-            print("No reply received after 60 seconds", file = sys.stderr)
+            print("No reply received after %d seconds" % wait_timeout, file = sys.stderr)
             sys.exit(EX_TEMPFAIL)
 
 def is_ip(ip):
@@ -300,6 +305,13 @@ if __name__ == '__main__':
             else:
                 print("Value passed to " + name + " is not a valid port number [%s]" % value, file=sys.stderr)
                 print(usage_string, file=sys.stderr)
+                sys.exit(EX_USAGE)
+
+        elif name in ('-t', '--timeout'):
+            try:
+                wait_timeout = int(value)
+            except:
+                print("Invalid timeout: %s" % value, file=sys.stderr)
                 sys.exit(EX_USAGE)
 
         elif name in ('-w', '--wait'):

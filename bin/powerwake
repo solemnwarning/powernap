@@ -171,6 +171,7 @@ def ipmiwake(ipmi_host=None, ipmi_port=None, ipmi_username=None, ipmi_password=N
     sock.settimeout(1.0)
 
     timeout_at = time.monotonic() + wait_timeout
+    next_wake_at = time.monotonic()
 
     while True:
         chassis_status = ipmi.get_chassis_status()
@@ -181,9 +182,14 @@ def ipmiwake(ipmi_host=None, ipmi_port=None, ipmi_username=None, ipmi_password=N
             sock.sendto(pwr.request, (broadcast_addr, broadcast_port))
 
         else:
-            # BMC says the machine is off - try to turn it on
-            # print("Sending IPMI power up command")
-            ipmi.chassis_control_power_up()
+            # BMC says the machine is off - try to turn it on.
+            # We only do this once every 10 seconds as the only server I've got to test this on
+            # won't proceed to power up until you *cease* sending any further power on commands for
+            # a few seconds after the first one.
+
+            if time.monotonic() >= next_wake_at:
+                ipmi.chassis_control_power_up()
+                next_wake_at = time.monotonic() + 10.0
 
         if not wait_for_ack:
             return

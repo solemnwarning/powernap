@@ -17,115 +17,83 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import threading, time, socket, os, re, struct, traceback
+import time, socket, os, re, struct, traceback, errno
 from logging import error, debug, info, warn
 
-# Obtain MAC address from Monitor Interface
-def get_mac_address(iface):
-    file = "/sys/class/net/%s/address" % iface
-    f = open(file, 'r')
-    iface = f.read()
-    f.close
-    return iface.strip()
-
-# Generate WoL data for local interface to compare with received packet (Partially taken from powerwake)
-def get_local_wol_data(mac):
-    nonhex = re.compile('[^0-9a-fA-F]')
-    mac = nonhex.sub('', mac)
-    if len(mac) != 12:
-        error("Malformed mac address [%s]" % mac)
-    error("Getting mac address {0}".format(mac))
-    data = b'FFFFFFFFFFFF' + (mac * 16).encode()
-    wol_data = b''
-    for i in range(0, len(data), 2):
-        wol_data += struct.pack('B', int(data[i: i + 2], 16))
-    return wol_data
-
-# Obtain a list of available eth's, with its MAC address and WoL data.
-def get_eths_mac_wol_info():
-    ifaces = []
+def get_local_macs():
+    mac_addrs = []
     #Using all network devices, it is also possible to define a specific one like eth for all devices starting with eth*
     prefix = re.compile("")
     dirs = os.listdir("/sys/class/net")
     for iface in dirs:
-        error("Found iface: [%s]" % iface)
-        if prefix.search(iface):
-            error("Using interface [%s] for further analysis" % iface)
-            # Obtain MAC address
-            mac = get_mac_address(iface)
-            # Obtain WoL data of eth
-            data = get_local_wol_data(mac)
-            ifaces.append({"iface":iface, "mac":mac, "wol":data})
-    return ifaces
+        # Obtain MAC address
+        f = open(("/sys/class/net/%s/address" % iface), 'r')
+        mac = f.read()
+        f.close
+
+        nonhex = re.compile('[^0-9a-fA-F]')
+        mac = nonhex.sub('', mac)
+
+        if len(mac) == 12:
+            mac_addrs.append(bytes.fromhex(mac))
+
+    return mac_addrs
+
+def wol_for_mac(mac):
+    return bytes.fromhex("FFFFFFFFFFFF") + (mac * 16)
 
 # Monitor plugin
 #   listen for WoL data in a UDP socket. It compares if the data is specifically
 #   for any of the interfaces
-class WoLMonitor (threading.Thread):
+class WoLMonitor:
 
     # Initialise
     def __init__ ( self, port ):
-        threading.Thread.__init__(self)
         self._type = "wol"
         self._port = port
         self._host = '' # Bind to all Interfaces
-        self._running = False
-        self._data_received = False
         self._absent_seconds = 0
+        self._sock = None
 
-    # Start thread
+        mac_addrs = get_local_macs()
+        self._wol_payloads = list(map(wol_for_mac, mac_addrs))
+
     def start ( self ):
-      self._running = True
-      threading.Thread.start(self)
+      try:
+          self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+          self._sock.bind(('', self._port))
+          self._sock.setblocking(False)
 
-    # Stop thread
-    def stop ( self ): self._running = False
+      except Exception as e:
+          error("Error setting up socket on UDP port %d: %s" % (self._port, str(e)))
+          self._sock = None
 
-    # Open port and wait for data (any data will trigger the monitor)
-    def run ( self ):
-
-        isRunning = False
-        #self._port = 7
-        ifaces = get_eths_mac_wol_info()
-
-        # Prepare the socket and bind port
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        try:
-            s.bind((self._host, self._port))
-            isRunning = True
-        except:
-            #error("Unable to bind port [%s]" % port)
-            return
-
-        #while isRunning:
-        while self._running:
-            try:
-                #error("    WoL monitor started at port [%s]" % self._port)
-                #recv_wol_msg, address = s.recvfrom(1024)
-                recv_wol_msg, address = s.recvfrom(2048)
-                #error("    WoL packet received from %s" % address[0])
-                for iface in ifaces:
-                    #error("\nrecv: [{0}]\ncalc: [{1}]".format(recv_wol_msg, iface["wol"]));
-                    if recv_wol_msg == iface["wol"]:
-                        #error("    WoL data matches local interface [%s]" % iface["iface"])
-                        self._data_received = True
-                        #isRunning = False
-			# TODO: Should return signal to daemon and wake up???
-                        #break
-            except (KeyboardInterrupt, SystemExit):
-                raise
-            except:
-                traceback.print_exc()
+    def stop(self):
+        pass
 
     def active(self):
-        if self._data_received:
-            self._data_received = False
-            return True
-        return False
+        active = False
 
-# ###########################################################################
-# Editor directives
-# ###########################################################################
+        if self._sock != None:
+            # Arbitrary cap on the number of packets to handle per tick, so
+            # we won't spin processing packets forever.
 
-# vim:sts=4:ts=4:sw=4:et
+            for x in range(128):
+                packet = None
+                remote_addr = None
 
+                try:
+                    # Wait for data
+                    packet, remote_addr = self._sock.recvfrom(1024)
+
+                except OSError as e:
+                    if e.errno != errno.EAGAIN:
+                        error("Read error on UDP port %d: %s", (self._port, str(e)));
+
+                    break
+
+                for wol_payload in self._wol_payloads:
+                    if wol_payload in packet:
+                        active = True
+
+        return active

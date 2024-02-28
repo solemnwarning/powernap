@@ -18,11 +18,11 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import errno
 import os
 import re
 import socket
 import time
-import threading
 
 from logging import error, debug, info, warn
 
@@ -48,105 +48,90 @@ def get_local_macs():
 
 # Monitor plugin
 #   listen for data on a UDP socket (typically WOL packets)
-class PowerWakeMonitor (threading.Thread):
+class PowerWakeMonitor:
     # Initialise
     def __init__ ( self, port ):
-        threading.Thread.__init__(self)
         self._type = "powerwake"
         self._port = port
-        self._running = False
         self._absent_seconds = 0
         self._pending_requests = []
+        self._sock = None
 
-        # Create socket
-        self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-    # Start thread
     def start ( self ):
-      self._running = True
-      threading.Thread.start(self)
+      try:
+          self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+          self._sock.bind(('', self._port))
+          self._sock.setblocking(False)
 
-    # Stop thread
-    def stop ( self ): self._running = False
+      except Exception as e:
+          error("Error setting up socket on UDP port %d: %s" % (self._port, str(e)))
+          self._sock = None
 
-    # Open port and wait for data (any data will trigger the monitor)
-    def run ( self ):
-        listen = False
+    def stop(self):
+        pass
 
-        local_macs = get_local_macs()
+    def active(self):
+        active = False
 
-        while self._running:
-            if not listen:
-                try:
-                    debug('%s - configure socket' % self)
-                    self._sock.bind(('', self._port))
-                    self._sock.settimeout(1.0)
-                    listen = True
-                except Exception as e:
-                    error('%s - failed to config socket [e=%s]' % (self, str(e)))
-                    time.sleep(1.0)
-            else:
+        if self._sock != None:
+            # Arbitrary cap on the number of packets to handle per tick, so
+            # we won't spin processing packets forever.
+
+            for x in range(128):
+                packet = None
+                remote_addr = None
+
                 try:
                     # Wait for data
                     packet, remote_addr = self._sock.recvfrom(1024)
 
-                    # See if the packet is a valid PowerWake WOL request
-                    if (len(packet) < 114
-                        or packet[0:8] != bytes("PWERWAKE", "ascii")
-                        or packet[12:18] != bytes.fromhex("FFFFFFFFFFFF")):
+                except OSError as e:
+                    if e.errno != errno.EAGAIN:
+                        error("Read error on UDP port %d: %s", (self._port, str(e)));
+
+                    break
+
+                # See if the packet is a valid PowerWake WOL request
+                if (len(packet) < 114
+                    or packet[0:8] != bytes("PWERWAKE", "ascii")
+                    or packet[12:18] != bytes.fromhex("FFFFFFFFFFFF")):
+                    # Malformed packet
+                    continue
+
+                # In some cases, powerwake wants to get a response from powernapd without
+                # knowing what our MAC is (i.e. after waking us via IPMI), so we always respond
+                # to this specifically malformed WoL packet.
+
+                NOT_A_WOL_PACKET = bytes(map(ord, "Not really a WoL packet."))
+
+                if not (packet[18:42] == NOT_A_WOL_PACKET
+                    and packet[42:66] == NOT_A_WOL_PACKET
+                    and packet[66:90] == NOT_A_WOL_PACKET
+                    and packet[90:114] == NOT_A_WOL_PACKET):
+
+                    wol_addrs_match = True
+                    for i in range(15): # i = 0 .. 15
+                        ia = 18 + (i * 6)
+                        ib = ia + 6
+
+                        if packet[ia:(ia + 6)] != packet[ib:(ib + 6)]:
+                            wol_addrs_match = False
+                            break
+
+                    if not wol_addrs_match:
                         # Malformed packet
                         continue
 
-                    # In some cases, powerwake wants to get a response from powernapd without
-                    # knowing what our MAC is (i.e. after waking us via IPMI), so we always respond
-                    # to this specifically malformed WoL packet.
+                    if not packet[18:24] in local_macs:
+                        # Not one of our MAC addresses
+                        continue
 
-                    NOT_A_WOL_PACKET = bytes(map(ord, "Not really a WoL packet."))
+                nonce = int.from_bytes(packet[8:12], byteorder='little', signed=False)
 
-                    if not (packet[18:42] == NOT_A_WOL_PACKET
-                        and packet[42:66] == NOT_A_WOL_PACKET
-                        and packet[66:90] == NOT_A_WOL_PACKET
-                        and packet[90:114] == NOT_A_WOL_PACKET):
+                # Reply to powerwake so it knows the machine is up.
+                reply = bytes("PWERWAKF", "ascii") + nonce.to_bytes(length=4, byteorder='little', signed=False)
+                self._sock.sendto(reply, remote_addr)
 
-                        wol_addrs_match = True
-                        for i in range(15): # i = 0 .. 15
-                            ia = 18 + (i * 6)
-                            ib = ia + 6
+                active = True
 
-                            if packet[ia:(ia + 6)] != packet[ib:(ib + 6)]:
-                                wol_addrs_match = False
-                                break
-
-                        if not wol_addrs_match:
-                            # Malformed packet
-                            continue
-
-                        if not packet[18:24] in local_macs:
-                            # Not one of our MAC addresses
-                            continue
-
-                    # The packet is valid, so we store it and send a response from the main thread
-                    # on the next tick, this ensures we don't falsely send a response to powerwake
-                    # before initiating a shutdown.
-
-                    nonce = int.from_bytes(packet[8:12], byteorder='little', signed=False)
-
-                    self._pending_requests.append([ remote_addr, nonce ])
-                    debug('%s - data packet received' % self)
-                    self.reset()
-
-                except:
-                    pass # timeout
-
-    def active(self):
-        if self._pending_requests:
-            # Acknowledge any pending powerwake requests
-            while self._pending_requests:
-                remote_addr, nonce = self._pending_requests.pop()
-
-                packet = bytes("PWERWAKF", "ascii") + nonce.to_bytes(length=4, byteorder='little', signed=False)
-                self._sock.sendto(packet, remote_addr)
-
-            return True
-
-        return False
+        return active

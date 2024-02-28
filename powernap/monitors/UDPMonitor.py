@@ -18,65 +18,54 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import threading, time
+import time, errno
 from logging import error, debug, info, warn
 
 # Monitor plugin
 #   listen for data on a UDP socket (typically WOL packets)
-class UDPMonitor (threading.Thread):
+class UDPMonitor:
 
     # Initialise
     def __init__ ( self, port ):
-        threading.Thread.__init__(self)
         self._type = "udp"
         self._port = port
-        self._running = False
-        self._data_received = False
         self._absent_seconds = 0
+        self._sock = None
 
-    # Start thread
     def start ( self ):
-      self._running = True
-      threading.Thread.start(self)
+      try:
+          self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+          self._sock.bind(('', self._port))
+          self._sock.setblocking(False)
 
-    # Stop thread
-    def stop ( self ): self._running = False
+      except Exception as e:
+          error("Error setting up socket on UDP port %d: %s" % (self._port, str(e)))
+          self._sock = None
 
-    # Open port and wait for data (any data will trigger the monitor)
-    def run ( self ):
-        import socket
-
-        # Create socket
-        sock   = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        listen = False
-
-        while self._running:
-            if not listen:
-                try:
-                    debug('%s - configure socket' % self)
-                    sock.bind(('', self._port))
-                    sock.settimeout(1.0)
-                    listen = True
-                except Exception as e:
-                    error('%s - failed to config socket [e=%s]' % (self, str(e)))
-                    time.sleep(1.0)
-            else:
-                try:
-                    # Wait for data
-                    sock.recvfrom(1024)
-                    self._data_received = True
-                    debug('%s - data packet received' % self)
-                    self.reset()
-                except: pass # timeout
+    def stop(self):
+        pass
 
     def active(self):
-        if self._data_received:
-            self._data_received = False
-            return True
-        return False
+        active = False
 
-# ###########################################################################
-# Editor directives
-# ###########################################################################
+        if self._sock != None:
+            # Arbitrary cap on the number of packets to handle per tick, so
+            # we won't spin processing packets forever.
 
-# vim:sts=4:ts=4:sw=4:et
+            for x in range(128):
+                packet = None
+                remote_addr = None
+
+                try:
+                    # Wait for data
+                    packet, remote_addr = self._sock.recvfrom(1024)
+
+                except OSError as e:
+                    if e.errno != errno.EAGAIN:
+                        error("Read error on UDP port %d: %s", (self._port, str(e)));
+
+                    break
+
+                active = True
+
+        return active

@@ -1,7 +1,7 @@
 --- a/debian/control	2023-09-18 17:41:51.782879849 +0100
 +++ b/debian/control	2023-09-18 17:41:53.174886861 +0100
 @@ -6,7 +6,7 @@
- Build-Depends: debhelper (>= 13), gettext-base, python3, dh-python
+ Build-Depends: debhelper (>= 13), gettext-base, python3, dh-python, python3-pyipmi
  Homepage: https://github.com/solemnwarning/powernap
  
 -Package: powernap
@@ -25,7 +25,7 @@
 -Package: powerwake
 +Package: powerwake-git
  Architecture: all
- Depends: ${misc:Depends}, ${python3:Depends}, debconf (>= 0.5) | debconf-2.0
+ Depends: ${misc:Depends}, ${python3:Depends}, python3-pyipmi, debconf (>= 0.5) | debconf-2.0
 -Enhances: powernap
 +Enhances: powernap-git
  Description: remotely wake a napping system

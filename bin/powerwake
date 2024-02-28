@@ -288,12 +288,11 @@ if __name__ == '__main__':
 
     for name, value in opts:
         if name in ('-b', '--broadcast'):
-            if is_ip(value):
-                broadcast_addr = value
-            else:
-                print("Value passed to " + name + " is not a valid IP address [%s]" % value, file=sys.stderr)
-                print(usage_string, file=sys.stderr)
-                sys.exit(EX_USAGE)
+            try:
+                broadcast_addr = socket.gethostbyname(value)
+            except Exception as e:
+                print(value + ": " + str(e), file=sys.stderr)
+                sys.exit(EX_NOHOST)
 
         elif name in ('-p', '--port'):
             if value.isdigit() and int(value) <= 65535:

@@ -56,12 +56,14 @@ class PowerWakeMonitor:
         self._absent_seconds = 0
         self._pending_requests = []
         self._sock = None
+        self._local_macs = []
 
     def start ( self ):
       try:
           self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
           self._sock.bind(('', self._port))
           self._sock.setblocking(False)
+          self._local_macs = get_local_macs()
 
       except Exception as e:
           error("Error setting up socket on UDP port %d: %s" % (self._port, str(e)))
@@ -122,7 +124,7 @@ class PowerWakeMonitor:
                         # Malformed packet
                         continue
 
-                    if not packet[18:24] in local_macs:
+                    if not packet[18:24] in self._local_macs:
                         # Not one of our MAC addresses
                         continue
 

@@ -28,78 +28,108 @@ import time
 import getopt
 import random
 
-global DEBUG, PKG, RC, HOME
-DEBUG = 0
-PKG = "powerwake"
-RC = 0
-HOME = os.getenv("HOME")
-short_opts = 'hb:p:wm:'
-long_opts = ['help', 'broadcast=', 'method=', 'port=', 'wait']
-usage_string = "Usage:\n  powerwake [-b|--broadcast BROADCAST_IP] [-p|--port BROADCAST_PORT] [-w|--wait] [-m|--method METHOD] TARGET_MAC|TARGET_IP|TARGET_HOST"
+import pyipmi
+import pyipmi.interfaces
 
+class PowerWakeRequest:
+    def __init__(self, mac):
+        # A random nonce is used in the WoL request/reply packets to
+        # disambiguate requests from individual powerwake clients.
+
+        ident = None
+
+        if mac == None:
+            # This is a special not-really-WoL packet used when we want to talk
+            # to powernapd after waking the machine up another way (i.e. IPMI).
+            ident = bytes(map(ord, "Not really a WoL packet.")) * 4
+
+        else:
+            nonhex = re.compile('[^0-9a-fA-F]')
+            mac = nonhex.sub('', mac)
+            if len(mac) != 12:
+                raise ValueError("Malformed mac address [%s]" % mac)
+
+            ident = bytes.fromhex(mac) * 16
+
+        self.nonce = random.randint(0, 0xFFFFFFFF)
+
+        self.request = (bytes("PWERWAKE", "ascii") +
+            self.nonce.to_bytes(length=4, byteorder='little', signed=False) +
+            bytes.fromhex("FFFFFFFFFFFF") +
+            ident)
+
+    def validate_reply(self, reply):
+        if (len(reply) == 12 and
+            reply[0:8] == bytes("PWERWAKF", "ascii") and
+            reply[8:12] == self.request[8:12]):
+            return True
+
+        else:
+            return False
+
+# sysexits.h
+EX_OK          = 0
+EX_USAGE       = 64
+EX_NOHOST      = 68
+EX_UNAVAILABLE = 69
+EX_TEMPFAIL    = 75
+
+PKG = "powerwake"
+HOME = os.getenv("HOME")
+short_opts = 'hb:p:wU:P:I'
+long_opts = ['help', 'broadcast=', 'ipmi', 'port=', 'wait', 'ipmi-username=', 'ipmi-password=']
+usage_string = """Usage: powerwake [OPTIONS] <TARGET_MAC|TARGET_IP|TARGET_HOST>
+
+Options:
+
+  -b, --broadcast <ip>            Sets the address to send WoL packets to
+  -p, --port <port>               Sets the port to send WoL packets to
+  -w, --wait                      Wait for the target system to finish booting
+                                  (requires powernapd to be configured)
+  -I, --ipmi                      Power on the system using IPMI
+  -U, --ipmi-username <username>  Sets the username when using --ipmi
+  -P, --ipmi-password <password>  Sets the password when using --ipmi
+
+Examples:
+
+Wake a machine using Wake-on-LAN:
+  powerwake [-b broadcast.port] [-p broadcast.port] [-w] TARGET_MAC|TARGET_IP|TARGET_HOST
+
+Wake a machine using IPMI:
+  powerwake -I -U ipmi-username -P ipmi-password bmc.ip.or.hostname
+
+Wake a machine using IPMI and wait for it to boot:
+  powerwake -I -U ipmi-username -P ipmi-password -w -b host.ip.or.hostname bmc.ip.or.hostname"""
+
+default_broadcast_addr = "255.255.255.255"
 default_broadcast_port = 7
 
-broadcast_addr = "255.255.255.255";
+broadcast_addr = None
 broadcast_port = None
-
-# Generic debug function
-def debug(level, msg):
-    if DEBUG >= level:
-        print("%s" % msg)
-
-# Generic error function
-def error(msg):
-    debug(0, "ERROR: %s" % msg)
-    ERROR = 1
-
-# Generic warning function
-def warning(msg):
-    debug(0, "WARNING: %s" % msg)
-
-# Generic info function
-def info(msg):
-    debug(0, "INFO: %s" % msg)
 
 def wakeonlan(mac, wait_for_ack):
     global broadcast_addr
     global broadcast_port
 
-    nonhex = re.compile('[^0-9a-fA-F]')
-    mac = nonhex.sub('', mac)
-    if len(mac) != 12:
-        error("Malformed mac address [%s]" % mac)
-
-    # We should cache this to /var/cache/powerwake/ethers,
-    # in case arp entry isn't available next time
-
-    # A random nonce is used in the WoL request/reply packets to disambiguate
-    # requests from individual powerwake clients.
-    nonce = random.randint(0, 0xFFFFFFFF)
-
-    data = (bytes("PWERWAKE", "ascii") +
-        nonce.to_bytes(length=4, byteorder='little', signed=False) +
-        bytes.fromhex("FFFFFFFFFFFF") +
-        (bytes.fromhex(mac) * 16))
+    pwr = PowerWakeRequest(mac)
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.settimeout(1.0)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
-    info("Sending magic packet to: [%s]" % mac)
-    sock.sendto(data, (broadcast_addr, broadcast_port))
-
-    if not wait_for_ack:
-        return
-
     timeout_at = time.monotonic() + 60.0 # timeout after one minute
 
     while True:
+        # print("Sending magic packet to: [%s]" % mac)
+        sock.sendto(pwr.request, (broadcast_addr, broadcast_port))
+
+        if not wait_for_ack:
+            return
+
         try:
             packet, remote_addr = sock.recvfrom(1024)
 
-            if (len(packet) == 12 and
-                packet[0:8] == bytes("PWERWAKF", "ascii") and
-                packet[8:12] == data[8:12]):
+            if pwr.validate_reply(packet):
                 print("Received reply from {}:{} - host is up".format(remote_addr[0], remote_addr[1]))
                 return
 
@@ -108,10 +138,64 @@ def wakeonlan(mac, wait_for_ack):
 
         if time.monotonic() >= timeout_at:
             print("No reply received after 60 seconds", file = sys.stderr)
-            sys.exit(1)
+            sys.exit(EX_TEMPFAIL)
 
-        info("Sending magic packet to: [%s]" % mac)
-        sock.sendto(data, (broadcast_addr, broadcast_port))
+def ipmiwake(ipmi_host=None, ipmi_port=None, ipmi_username=None, ipmi_password=None):
+    global broadcast_addr
+    global broadcast_port
+
+    ipmi = None
+
+    try:
+        interface = pyipmi.interfaces.create_interface(interface='rmcp')
+        ipmi = pyipmi.create_connection(interface)
+        ipmi.session.set_session_type_rmcp(host=ipmi_host, port=ipmi_port)
+        ipmi.session.set_auth_type_user(username=ipmi_username, password=ipmi_password)
+
+        ipmi.target = pyipmi.Target(ipmb_address=0x20)
+
+        ipmi.session.establish()
+
+    except Exception as e:
+        print("Error during IPMI connection: " + e, file=sys.stderr)
+        sys.exit(EX_UNAVAILABLE)
+
+    pwr = PowerWakeRequest(None)
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(1.0)
+
+    timeout_at = time.monotonic() + 60.0 # timeout after one minute
+
+    while True:
+        chassis_status = ipmi.get_chassis_status()
+
+        if chassis_status.power_on:
+            # BMC says the machine in on - try to get a response from powernapd
+            # print("Sending magic packet to: [%s]" % broadcast_addr)
+            sock.sendto(pwr.request, (broadcast_addr, broadcast_port))
+
+        else:
+            # BMC says the machine is off - try to turn it on
+            # print("Sending IPMI power up command")
+            ipmi.chassis_control_power_up()
+
+        if not wait_for_ack:
+            return
+
+        try:
+            packet, remote_addr = sock.recvfrom(1024)
+
+            if pwr.validate_reply(packet):
+                print("Received reply from {}:{} - host is up".format(remote_addr[0], remote_addr[1]))
+                return
+
+        except TimeoutError:
+            pass # recv timeout
+
+        if time.monotonic() >= timeout_at:
+            print("No reply received after 60 seconds", file = sys.stderr)
+            sys.exit(EX_TEMPFAIL)
 
 def is_ip(ip):
     r1 = re.compile('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
@@ -190,81 +274,117 @@ if __name__ == '__main__':
     method = 'wol'
     wait_for_ack = False
 
+    ipmi_host = None
+    ipmi_port = None
+    ipmi_username = None
+    ipmi_password = None
+
     # parse getopt options
     try:
         opts, args = getopt.getopt(sys.argv[1:], short_opts, long_opts)
     except:
-        print(usage_string)
-        exit(1)
+        print(usage_string, file=sys.stdout)
+        sys.exit(EX_USAGE)
 
     for name, value in opts:
         if name in ('-b', '--broadcast'):
             if is_ip(value):
                 broadcast_addr = value
             else:
-                error("Value passed to " + name + " is not a valid IP address [%s]" % value)
-                print(usage_string)
-                exit(1)
+                print("Value passed to " + name + " is not a valid IP address [%s]" % value, file=sys.stderr)
+                print(usage_string, file=sys.stderr)
+                sys.exit(EX_USAGE)
 
         elif name in ('-p', '--port'):
             if value.isdigit() and int(value) <= 65535:
                 broadcast_port = int(value)
             else:
-                error("Value passed to " + name + " is not a valid port number [%s]" % value)
-                print(usage_string)
-                exit(1)
+                print("Value passed to " + name + " is not a valid port number [%s]" % value, file=sys.stderr)
+                print(usage_string, file=sys.stderr)
+                sys.exit(EX_USAGE)
 
         elif name in ('-w', '--wait'):
             default_broadcast_port = 57748
             wait_for_ack = True
 
-        elif name in ('-m', '--method'):
-            method = value
+        elif name in ('-I', '--ipmi'):
+            method = "ipmi"
+
+        elif name in ('-U', '--ipmi-username'):
+            ipmi_username = value
+
+        elif name in ('-P', '--ipmi-password'):
+            ipmi_password = value
+
         elif name in ('-h', '--help'):
             print(usage_string)
-            exit(0)
+            sys.exit(EX_OK)
 
     if broadcast_port == None:
         broadcast_port = default_broadcast_port
 
-    # if args is less than one, we don't have a host to wake up
-    if len(args) < 1:
-        error("Please provide one or more MAC addresses, IP addresses, or Hostnames")
-        print(usage_string)
-        exit(1)
+    if method == "ipmi":
+        if broadcast_addr == None and wait_for_ack:
+            print("The IP address or name of the host must be supplied with -b when using --wait with --ipmi", file=sys.stderr)
+            print(usage_string, file=sys.stderr)
+            sys.exit(EX_USAGE)
 
-    # Process command line parameters
-    for i in args:
-        # If parameter matches a system with a static configuration, use it!
-        # ^^^ Not yet implemented, default to wake-on-lan method for now
-        if method == "wol":
-            if is_mac(i):
-                # this appears to be a mac address, just use it
-                m = i
-                pass
-            else:
-                # Retrieve the mac cache
-                host_to_mac = get_arp_cache()
-                if i in host_to_mac:
-                    # mac found in the hash
-                    info("Trying to wake host: [%s]" % i)
-                    m = host_to_mac[i]
-                else:
-                    # not in the cache, do the expensive arp search
-                    host_to_mac = get_arp_hash()
-                    if i in host_to_mac:
-                        # mac found in the hash
-                        info("Trying to wake host: [%s]" % i)
-                        m = host_to_mac[i]
-                    else:
-                        # cannot autodetect the mac address
-                        error("Could not determine the MAC address of [%s]" % i)
-                        continue
-            if is_mac(m):
-                wakeonlan(m, wait_for_ack)
-            else:
-                error("Could not wake host [%s]" % m)
+        if ipmi_username == None:
+            print("The IPMI username must be specified with -U", file=sys.stderr)
+            print(usage_string, file=sys.stderr)
+            sys.exit(EX_USAGE)
+
+        if ipmi_password == None:
+            print("The IPMI password must be specified with -P", file=sys.stderr)
+            print(usage_string, file=sys.stderr)
+            sys.exit(EX_USAGE)
+
+    elif method == "wol":
+        if broadcast_addr == None:
+            broadcast_addr = default_broadcast_addr
+
+    # if args is less than one, we don't have a host to wake up
+    if len(args) != 1:
+        print(usage_string, file=sys.stderr)
+        sys.exit(EX_USAGE)
+
+    target = args[0]
+
+    # If parameter matches a system with a static configuration, use it!
+    # ^^^ Not yet implemented, default to wake-on-lan method for now
+    if method == "wol":
+        mac = None
+
+        if is_mac(target):
+            # this appears to be a mac address, just use it
+            mac = target
         else:
-            error("Unsupported method [%s]" % method)
-            RC=1
-    sys.exit(RC)
+            # Retrieve the mac cache
+            host_to_mac = get_arp_cache()
+            if target in host_to_mac:
+                # mac found in the hash
+                print("Trying to wake host: [%s]" % target)
+                mac = host_to_mac[target]
+            else:
+                # not in the cache, do the expensive arp search
+                host_to_mac = get_arp_hash()
+                if target in host_to_mac:
+                    # mac found in the hash
+                    print("Trying to wake host: [%s]" % target)
+                    mac = host_to_mac[target]
+                else:
+                    # cannot autodetect the mac address
+                    print("Could not determine the MAC address of [%s]" % target, file=sys.stderr)
+                    sys.exit(EX_NOHOST)
+
+        wakeonlan(mac, wait_for_ack)
+
+    elif method == "ipmi":
+        ipmiwake(
+            ipmi_host=target,
+            ipmi_port=623,
+            ipmi_username=ipmi_username,
+            ipmi_password=ipmi_password,
+        )
+
+    sys.exit(EX_OK)

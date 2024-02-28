@@ -97,22 +97,33 @@ class PowerWakeMonitor (threading.Thread):
                         # Malformed packet
                         continue
 
-                    wol_addrs_match = True
-                    for i in range(15): # i = 0 .. 15
-                        ia = 18 + (i * 6)
-                        ib = ia + 6
+                    # In some cases, powerwake wants to get a response from powernapd without
+                    # knowing what our MAC is (i.e. after waking us via IPMI), so we always respond
+                    # to this specifically malformed WoL packet.
 
-                        if packet[ia:(ia + 6)] != packet[ib:(ib + 6)]:
-                            wol_addrs_match = False
-                            break
+                    NOT_A_WOL_PACKET = bytes(map(ord, "Not really a WoL packet."))
 
-                    if not wol_addrs_match:
-                        # Malformed packet
-                        continue
+                    if not (packet[18:42] == NOT_A_WOL_PACKET
+                        and packet[42:66] == NOT_A_WOL_PACKET
+                        and packet[66:90] == NOT_A_WOL_PACKET
+                        and packet[90:114] == NOT_A_WOL_PACKET):
 
-                    if not packet[18:24] in local_macs:
-                        # Not one of our MAC addresses
-                        continue
+                        wol_addrs_match = True
+                        for i in range(15): # i = 0 .. 15
+                            ia = 18 + (i * 6)
+                            ib = ia + 6
+
+                            if packet[ia:(ia + 6)] != packet[ib:(ib + 6)]:
+                                wol_addrs_match = False
+                                break
+
+                        if not wol_addrs_match:
+                            # Malformed packet
+                            continue
+
+                        if not packet[18:24] in local_macs:
+                            # Not one of our MAC addresses
+                            continue
 
                     # The packet is valid, so we store it and send a response from the main thread
                     # on the next tick, this ensures we don't falsely send a response to powerwake

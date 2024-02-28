@@ -3,7 +3,7 @@ Section: admin
 Priority: optional
 Maintainer: Daniel Collins <solemnwarning@solemnwarning.net>
 Standards-Version: 3.9.1
-Build-Depends: debhelper (>= 13), gettext-base, python3, dh-python
+Build-Depends: debhelper (>= 13), gettext-base, python3, dh-python, python3-pyipmi
 Homepage: https://github.com/solemnwarning/powernap
 
 Package: powernap
@@ -40,7 +40,7 @@ Description: reduce the power consumption of a system when inactive
 
 Package: powerwake
 Architecture: all
-Depends: ${misc:Depends}, ${python3:Depends}, debconf (>= 0.5) | debconf-2.0
+Depends: ${misc:Depends}, ${python3:Depends}, python3-pyipmi, debconf (>= 0.5) | debconf-2.0
 Enhances: powernap
 Description: remotely wake a napping system
  PowerWake is a generic mechanism for remotely waking systems.  It is

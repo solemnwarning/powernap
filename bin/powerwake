@@ -30,6 +30,7 @@ import random
 
 import pyipmi
 import pyipmi.interfaces
+import pyipmi.session
 
 class PowerWakeRequest:
     def __init__(self, mac):
@@ -159,10 +160,15 @@ def ipmiwake(ipmi_host=None, ipmi_port=None, ipmi_username=None, ipmi_password=N
 
         ipmi.target = pyipmi.Target(ipmb_address=0x20)
 
+        # pyipmi doesn't have an API to request a non-administrator privilege level, which means
+        # we can't connect with less-privileged (i.e. operator) accounts... but it does have an
+        # internal constant for what the privilege level resolves to which we can patch.
+        pyipmi.Session.PRIV_LEVEL_ADMINISTRATOR = 3 # OPERATOR
+
         ipmi.session.establish()
 
     except Exception as e:
-        print("Error during IPMI connection: " + e, file=sys.stderr)
+        print("Error during IPMI connection: " + str(e), file=sys.stderr)
         sys.exit(EX_UNAVAILABLE)
 
     pwr = PowerWakeRequest(None)

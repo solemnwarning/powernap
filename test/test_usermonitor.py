@@ -84,5 +84,85 @@ solemnwa pts/0    :pts/3:S.0       18:49m SCREEN -dmUS rss newsbeuter
 		
 		self.assertEqual(monitor._check_w_output(w_output), False)
 
+class TestLoggedInUsersMonitorSecondsIdle(unittest.TestCase):
+	def runTest(self):
+		monitor = LoggedInUsersMonitor(30) # 30 seconds
+		
+		w_output = '''
+solemnwa pts/2    172.24.128.21    45.00s screen -dUx i
+'''
+		
+		self.assertEqual(monitor._check_w_output(w_output), False)
+
+class TestLoggedInUsersMonitorSecondsNotIdle(unittest.TestCase):
+	def runTest(self):
+		monitor = LoggedInUsersMonitor(30) # 30 seconds
+		
+		w_output = '''
+solemnwa pts/2    172.24.128.21    1.00s  screen -dUx i
+'''
+		
+		self.assertEqual(monitor._check_w_output(w_output), True)
+
+class TestLoggedInUsersMonitorMinutesIdle(unittest.TestCase):
+	def runTest(self):
+		monitor = LoggedInUsersMonitor(600) # 10 minutes
+		
+		w_output = '''
+solemnwa pts/2    172.24.128.21    15:30  screen -dUx i
+'''
+		
+		self.assertEqual(monitor._check_w_output(w_output), False)
+
+class TestLoggedInUsersMonitorMinutesNotIdle(unittest.TestCase):
+	def runTest(self):
+		monitor = LoggedInUsersMonitor(600) # 10 minutes
+		
+		w_output = '''
+solemnwa pts/2    172.24.128.21    05:30  screen -dUx i
+'''
+		
+		self.assertEqual(monitor._check_w_output(w_output), True)
+
+class TestLoggedInUsersMonitorHoursIdle(unittest.TestCase):
+	def runTest(self):
+		monitor = LoggedInUsersMonitor(43200) # 12 hours
+		
+		w_output = '''
+solemnwa pts/2    172.24.128.21    15:30m screen -dUx i
+'''
+		
+		self.assertEqual(monitor._check_w_output(w_output), False)
+
+class TestLoggedInUsersMonitorHoursNotIdle(unittest.TestCase):
+	def runTest(self):
+		monitor = LoggedInUsersMonitor(43200) # 12 hours
+		
+		w_output = '''
+solemnwa pts/2    172.24.128.21    05:30m screen -dUx i
+'''
+		
+		self.assertEqual(monitor._check_w_output(w_output), True)
+
+class TestLoggedInUsersMonitorDaysIdle(unittest.TestCase):
+	def runTest(self):
+		monitor = LoggedInUsersMonitor(432000) # 5 days
+		
+		w_output = '''
+solemnwa pts/2    172.24.128.21     6days screen -dUx i
+'''
+		
+		self.assertEqual(monitor._check_w_output(w_output), False)
+
+class TestLoggedInUsersMonitorDaysNotIdle(unittest.TestCase):
+	def runTest(self):
+		monitor = LoggedInUsersMonitor(432000) # 5 days
+		
+		w_output = '''
+solemnwa pts/2    172.24.128.21     3days screen -dUx i
+'''
+		
+		self.assertEqual(monitor._check_w_output(w_output), True)
+
 if __name__ == '__main__':
 	unittest.main()

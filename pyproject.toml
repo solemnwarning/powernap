@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "powernap"
+description = "Power down idle computers and wake them up again"
+license = { file = "LICENSE.txt" }
+
+version = "0"
+
+authors = [
+	{ name = "Daniel Collins" },
+	{ name = "Dustin Kirkland" },
+]
+
+dependencies = [
+	"pytimeparse",
+]
+
+[project.urls]
+Homepage = "https://github.com/solemnwarning/powernap"

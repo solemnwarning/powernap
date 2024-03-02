@@ -114,7 +114,7 @@ class PowerWake:
         return mac_or_ip
 
     def is_ip(self, ip):
-        r1 = re.compile('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
+        r1 = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$")
         if r1.match(ip):
             return True
         else:

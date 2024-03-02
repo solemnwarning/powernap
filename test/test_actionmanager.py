@@ -3,6 +3,8 @@ import unittest
 from powernap.ActionManager import ActionManager
 
 class TestActionManager(ActionManager):
+	__test__ = False
+
 	def __init__(self, actions):
 		self.log = []
 		super().__init__(actions, "/nonexistant")

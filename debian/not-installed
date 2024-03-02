@@ -1,0 +1,2 @@
+usr/lib/*/dist-packages/*.egg-info
+usr/lib/*/dist-packages/test/

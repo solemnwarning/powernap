@@ -3,7 +3,15 @@ Section: admin
 Priority: optional
 Maintainer: Daniel Collins <solemnwarning@solemnwarning.net>
 Standards-Version: 3.9.1
-Build-Depends: debhelper (>= 13), gettext-base, python3, dh-python, python3-pyipmi
+Build-Depends: debhelper (>= 13),
+ dh-python,
+ gettext-base,
+ python3,
+ python3-pyipmi,
+ python3-pytest,
+ python3-pytimeparse,
+ python3-setuptools,
+ python3-scapy
 Homepage: https://github.com/solemnwarning/powernap
 
 Package: powernap

@@ -34,9 +34,20 @@ def get_local_macs():
     dirs = os.listdir("/sys/class/net")
     for iface in dirs:
         # Obtain MAC address
-        f = open(("/sys/class/net/%s/address" % iface), 'r')
+        f = None
+        address_path = "/sys/class/net/%s/address" % iface;
+
+        try:
+            f = open(("/sys/class/net/%s/address" % iface), 'r')
+        except FileNotFoundError:
+            continue
+        except NotADirectoryError:
+            continue
+        except Exception as err:
+            error("Error opening %s: %s" % (err))
+
         mac = f.read()
-        f.close
+        f.close()
 
         nonhex = re.compile('[^0-9a-fA-F]')
         mac = nonhex.sub('', mac)

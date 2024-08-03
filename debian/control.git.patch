@@ -1,6 +1,6 @@
---- a/debian/control	2024-03-02 11:33:48.316694077 +0000
-+++ b/debian/control	2024-03-02 11:33:54.996645530 +0000
-@@ -14,7 +14,7 @@
+--- a/debian/control
++++ b/debian/control
+@@ -16,7 +16,7 @@ Build-Depends: debhelper (>= 13),
   python3-scapy
  Homepage: https://github.com/solemnwarning/powernap
  
@@ -9,7 +9,7 @@
  Architecture: all
  Depends:
   ${misc:Depends},
-@@ -23,7 +23,7 @@
+@@ -25,7 +25,7 @@ Depends:
   pm-utils,
   python3-pytimeparse
  Recommends: ethtool
@@ -18,20 +18,25 @@
  Description: reduce the power consumption of a system when inactive
   PowerNap watches a series of configurable monitors.  When no activity
   has occurred on any of these monitors for some specified time, PowerNap
-@@ -46,10 +46,10 @@
+@@ -48,7 +48,7 @@ Description: reduce the power consumption of a system when inactive
   .
   See /etc/powernap/config for all configurable options and defaults.
  
 -Package: powerwake
 +Package: powerwake-git
  Architecture: all
- Depends: ${misc:Depends}, ${python3:Depends}, python3-pyipmi, debconf (>= 0.5) | debconf-2.0
+ Depends:
+  ${misc:Depends},
+@@ -57,7 +57,7 @@ Depends:
+  python3-netifaces,
+  python3-pyipmi,
+  debconf (>= 0.5) | debconf-2.0
 -Enhances: powernap
 +Enhances: powernap-git
  Description: remotely wake a napping system
   PowerWake is a generic mechanism for remotely waking systems.  It is
   intended to support wake-on-lan, ipmi, and other remote waking mechanisms.
-@@ -57,11 +57,11 @@
+@@ -65,11 +65,11 @@ Description: remotely wake a napping system
   some handy caching of MAC addresses, such that systems can be awakened by
   hostname or ip address, in addition to MAC address.
  
@@ -46,7 +51,7 @@
  Description: remotely wake a napping system - Server Daemon
   PowerWake Server is a mechanism to remotely monitor and wake up systems
   based on manual intervention, or automatic intervention based on a set of
-@@ -74,7 +74,7 @@
+@@ -82,7 +82,7 @@ Description: remotely wake a napping system - Server Daemon
   When activity is received, the monitors will automatically try to wake up
   if it is in powersave or offline mode.
  

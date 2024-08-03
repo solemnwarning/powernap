@@ -19,7 +19,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
+import ipaddress
 import re
 import socket
 import struct
@@ -31,6 +31,9 @@ import random
 import pyipmi
 import pyipmi.interfaces
 import pyipmi.session
+
+import powerwake.addressutils
+import powerwake.targetconfig
 
 class PowerWakeRequest:
     def __init__(self, mac):
@@ -75,8 +78,6 @@ EX_NOHOST      = 68
 EX_UNAVAILABLE = 69
 EX_TEMPFAIL    = 75
 
-PKG = "powerwake"
-HOME = os.getenv("HOME")
 short_opts = 'hb:p:wU:P:It:'
 long_opts = ['help', 'broadcast=', 'ipmi', 'port=', 'wait', 'ipmi-username=', 'ipmi-password=', 'timeout=']
 usage_string = """Usage: powerwake [OPTIONS] <TARGET_MAC|TARGET_IP|TARGET_HOST>
@@ -104,31 +105,24 @@ Wake a machine using IPMI:
 Wake a machine using IPMI and wait for it to boot:
   powerwake -I -U ipmi-username -P ipmi-password -w -b host.ip.or.hostname bmc.ip.or.hostname"""
 
-default_broadcast_addr = "255.255.255.255"
-default_broadcast_port = 7
+def wakeonlan(target_config):
+    wol_mac  = target_config["wol.mac"]
+    wol_ip   = target_config["wol.ip"]
+    wol_port = target_config["wol.port"]
 
-broadcast_addr = None
-broadcast_port = None
-wait_timeout = 60
-
-def wakeonlan(mac, wait_for_ack):
-    global broadcast_addr
-    global broadcast_port
-    global wait_timeout
-
-    pwr = PowerWakeRequest(mac)
+    pwr = PowerWakeRequest(wol_mac)
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.settimeout(1.0)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
-    timeout_at = time.monotonic() + wait_timeout
+    timeout_at = time.monotonic() + target_config["wait.timeout"]
 
     while True:
-        # print("Sending magic packet to: [%s]" % mac)
-        sock.sendto(pwr.request, (broadcast_addr, broadcast_port))
+        # print(f"Sending magic packet for {wol_mac} to {wol_ip}:{wol_port}")
+        sock.sendto(pwr.request, (target_config["wol.ip"], target_config["wol.port"]))
 
-        if not wait_for_ack:
+        if not target_config["wait"]:
             return
 
         try:
@@ -145,18 +139,14 @@ def wakeonlan(mac, wait_for_ack):
             print("No reply received after %d seconds" % wait_timeout, file = sys.stderr)
             sys.exit(EX_TEMPFAIL)
 
-def ipmiwake(ipmi_host=None, ipmi_port=None, ipmi_username=None, ipmi_password=None):
-    global broadcast_addr
-    global broadcast_port
-    global wait_timeout
-
+def ipmiwake(target_config):
     ipmi = None
 
     try:
         interface = pyipmi.interfaces.create_interface(interface='rmcp')
         ipmi = pyipmi.create_connection(interface)
-        ipmi.session.set_session_type_rmcp(host=ipmi_host, port=ipmi_port)
-        ipmi.session.set_auth_type_user(username=ipmi_username, password=ipmi_password)
+        ipmi.session.set_session_type_rmcp(host=target_config["ipmi.host"], port=target_config["ipmi.port"])
+        ipmi.session.set_auth_type_user(username=target_config["ipmi.username"], password=target_config["ipmi.password"])
 
         ipmi.target = pyipmi.Target(ipmb_address=0x20)
 
@@ -176,7 +166,7 @@ def ipmiwake(ipmi_host=None, ipmi_port=None, ipmi_username=None, ipmi_password=N
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.settimeout(1.0)
 
-    timeout_at = time.monotonic() + wait_timeout
+    timeout_at = time.monotonic() + target_config["wait.timeout"]
     next_wake_at = time.monotonic()
 
     while True:
@@ -184,8 +174,10 @@ def ipmiwake(ipmi_host=None, ipmi_port=None, ipmi_username=None, ipmi_password=N
 
         if chassis_status.power_on:
             # BMC says the machine in on - try to get a response from powernapd
-            # print("Sending magic packet to: [%s]" % broadcast_addr)
-            sock.sendto(pwr.request, (broadcast_addr, broadcast_port))
+
+            if target_config["wait"]:
+                # print("Sending magic packet to: [%s]" % broadcast_addr)
+                sock.sendto(pwr.request, (target_config["wait.ip"], target_config["wait.port"]))
 
         else:
             # BMC says the machine is off - try to turn it on.
@@ -197,7 +189,7 @@ def ipmiwake(ipmi_host=None, ipmi_port=None, ipmi_username=None, ipmi_password=N
                 ipmi.chassis_control_power_up()
                 next_wake_at = time.monotonic() + 10.0
 
-        if not wait_for_ack:
+        if not target_config["wait"]:
             return
 
         try:
@@ -214,87 +206,40 @@ def ipmiwake(ipmi_host=None, ipmi_port=None, ipmi_username=None, ipmi_password=N
             print("No reply received after %d seconds" % wait_timeout, file = sys.stderr)
             sys.exit(EX_TEMPFAIL)
 
-def is_ip(ip):
-    r1 = re.compile('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
-    if r1.match(ip):
-        return 1
-    else:
-        return 0
+def find_target_config(target):
+    if config := powerwake.targetconfig.target_config_from_dns(target):
+        # Target configuration was found in DNS
+        return config
 
-def is_mac(mac):
-    r1 = re.compile('^[0-9a-fA-F]{12}$')
-    r2 = re.compile('^[0-9a-fA-F]{2}.[0-9a-fA-F]{2}.[0-9a-fA-F]{2}.[0-9a-fA-F]{2}.[0-9a-fA-F]{2}.[0-9a-fA-F]{2}$')
-    if r1.match(mac) or r2.match(mac):
-        return 1
-    else:
-        return 0
+    if os.path.exists("/etc/ethers"):
+        if config := powerwake.targetconfig.target_config_from_ethers(target, "/etc/ethers"):
+            # Target is a hostname or IP listed in /etc/ethers
+            return config
 
-# Source the cached, known arp entries
-def get_arp_cache():
-    host_to_mac = {}
-    for file in ["/var/cache/%s/ethers" % PKG, "/etc/ethers", "%s/.cache/ethers" % HOME]:
-        if os.path.exists(file):
-            f = open(file, 'r')
-            for i in f.readlines():
-                try:
-                    (m, h) = i.split()
-                    host_to_mac[h] = m
-                except:
-                    pass
-            f.close()
-    return host_to_mac
+    if mac := powerwake.addressutils.normalise_mac(target):
+        # Target is a MAC address we know nothing else about
 
-# Source the current, working arp table
-def get_arp_current(host_to_mac):
-    # Load hostnames
-    for i in os.popen("/usr/sbin/arp"):
-        m = i.split()[2]
-        h = i.split()[0]
-        if is_mac(m):
-            host_to_mac[h] = m
-    # Load ip addresses
-    for i in os.popen("/usr/sbin/arp -n"):
-        m = i.split()[2]
-        h = i.split()[0]
-        if is_mac(m):
-            host_to_mac[h] = m
-    return host_to_mac
+        return {
+            "target": target,
+            "method": "wol",
+            "wait": False,
+            "wol.mac": mac,
+        }
 
-def write_arp_cache(host_to_mac):
-    if not os.access("%s/.cache/" % HOME, os.W_OK):
-        return
-    if not os.path.exists("%s/.cache/" % HOME):
-        os.makedirs("%s/.cache/" % HOME)
-    f = open("%s/.cache/ethers" % HOME, 'a')
-    f.close()
-    for file in ["/var/cache/%s/ethers" % PKG, "%s/.cache/ethers" % HOME]:
-        if os.access(file, os.W_OK):
-            f = open(file, 'w')
-            for h in host_to_mac:
-                if is_mac(host_to_mac[h]):
-                    f.write("%s %s\n" % (host_to_mac[h], h))
-            f.close()
-
-def get_arp_hash():
-    host_to_mac = get_arp_cache()
-    host_to_mac = get_arp_current(host_to_mac)
-    write_arp_cache(host_to_mac)
-    return host_to_mac
-
-# TODO:
-#   Parameters to add:
-#     --list - list known mac/ip-host combinations
-#     --clear - clear the cache
+    # Target configuration not found
+    return None
 
 if __name__ == '__main__':
-    # set up defaults
-    method = 'wol'
-    wait_for_ack = False
+    default_broadcast_addr = "255.255.255.255"
+    default_broadcast_port = 7
 
-    ipmi_host = None
-    ipmi_port = None
-    ipmi_username = None
-    ipmi_password = None
+    wait = False
+    wait_timeout = 60
+
+    cmdline_bcast_addr = None
+    cmdline_bcast_port = None
+
+    target_config = {}
 
     # parse getopt options
     try:
@@ -306,14 +251,16 @@ if __name__ == '__main__':
     for name, value in opts:
         if name in ('-b', '--broadcast'):
             try:
-                broadcast_addr = socket.gethostbyname(value)
+                cmdline_bcast_addr = socket.gethostbyname(value)
+
             except Exception as e:
                 print(value + ": " + str(e), file=sys.stderr)
                 sys.exit(EX_NOHOST)
 
         elif name in ('-p', '--port'):
             if value.isdigit() and int(value) <= 65535:
-                broadcast_port = int(value)
+                cmdline_bcast_port = int(value)
+
             else:
                 print("Value passed to " + name + " is not a valid port number [%s]" % value, file=sys.stderr)
                 print(usage_string, file=sys.stderr)
@@ -328,43 +275,20 @@ if __name__ == '__main__':
 
         elif name in ('-w', '--wait'):
             default_broadcast_port = 57748
-            wait_for_ack = True
+            wait = True
 
         elif name in ('-I', '--ipmi'):
-            method = "ipmi"
+            target_config["method"] = "ipmi"
 
         elif name in ('-U', '--ipmi-username'):
-            ipmi_username = value
+            target_config["ipmi.username"] = value
 
         elif name in ('-P', '--ipmi-password'):
-            ipmi_password = value
+            target_config["ipmi.password"] = value
 
         elif name in ('-h', '--help'):
             print(usage_string)
             sys.exit(EX_OK)
-
-    if broadcast_port == None:
-        broadcast_port = default_broadcast_port
-
-    if method == "ipmi":
-        if broadcast_addr == None and wait_for_ack:
-            print("The IP address or name of the host must be supplied with -b when using --wait with --ipmi", file=sys.stderr)
-            print(usage_string, file=sys.stderr)
-            sys.exit(EX_USAGE)
-
-        if ipmi_username == None:
-            print("The IPMI username must be specified with -U", file=sys.stderr)
-            print(usage_string, file=sys.stderr)
-            sys.exit(EX_USAGE)
-
-        if ipmi_password == None:
-            print("The IPMI password must be specified with -P", file=sys.stderr)
-            print(usage_string, file=sys.stderr)
-            sys.exit(EX_USAGE)
-
-    elif method == "wol":
-        if broadcast_addr == None:
-            broadcast_addr = default_broadcast_addr
 
     # if args is less than one, we don't have a host to wake up
     if len(args) != 1:
@@ -373,41 +297,76 @@ if __name__ == '__main__':
 
     target = args[0]
 
-    # If parameter matches a system with a static configuration, use it!
-    # ^^^ Not yet implemented, default to wake-on-lan method for now
-    if method == "wol":
-        mac = None
+    if not target_config:
+        try:
+            target_config = find_target_config(target)
 
-        if is_mac(target):
-            # this appears to be a mac address, just use it
-            mac = target
-        else:
-            # Retrieve the mac cache
-            host_to_mac = get_arp_cache()
-            if target in host_to_mac:
-                # mac found in the hash
-                print("Trying to wake host: [%s]" % target)
-                mac = host_to_mac[target]
+        except powerwake.targetconfig.Error as e:
+            print(str(e), file=sys.stderr)
+            sys.exit(EX_NOHOST)
+
+        if target_config == None:
+            print(f"Could not determine the MAC address of {target}", file=sys.stderr)
+            sys.exit(EX_NOHOST)
+
+    target_config["wait"] = wait
+    target_config["wait.timeout"] = wait_timeout
+
+    if target_config["method"] == "ipmi":
+        target_config["ipmi.host"] = target
+        target_config["ipmi.port"] = 623
+
+        target_config["wait.ip"] = cmdline_bcast_addr
+
+        if cmdline_bcast_port != None:
+            target_config["wait.port"] = cmdline_bcast_port
+        elif not "wol.port" in target_config:
+            target_config["wait.port"] = default_broadcast_port
+
+        if target_config["wait"] and target_config["wait.ip"] == None:
+            print("The IP address or name of the host must be supplied with -b when using --wait with --ipmi", file=sys.stderr)
+            print(usage_string, file=sys.stderr)
+            sys.exit(EX_USAGE)
+
+        if not "ipmi.username" in target_config:
+            print("The IPMI username must be specified with -U", file=sys.stderr)
+            print(usage_string, file=sys.stderr)
+            sys.exit(EX_USAGE)
+
+        if not "ipmi.password" in target_config:
+            print("The IPMI password must be specified with -P", file=sys.stderr)
+            print(usage_string, file=sys.stderr)
+            sys.exit(EX_USAGE)
+
+        ipmiwake(target_config)
+
+    elif target_config["method"] == "wol":
+        if cmdline_bcast_addr != None:
+            target_config["wol.ip"] = cmdline_bcast_addr
+        elif not "wol.ip" in target_config:
+            # If we know the IP address of the target host, then look for a broadcast address on
+            # the local system which will reach it and use it, if we aren't on-link with the target
+            # host, then we send it directly and hope the destination router can deal with it.
+            #
+            # TODO: Select most specific network if multiple match
+
+            if "target.ip" in target_config:
+                target_config["wol.ip"] = target_config["target.ip"]
+
+                broadcast_addrs = powerwake.addressutils.get_ipv4_broadcast_addresses()
+                for addr in broadcast_addrs:
+                    net = ipaddress.ip_network(addr["ipaddr"] + "/" + addr["netmask"], False)
+                    if ipaddress.ip_address(target_config["target.ip"]) in net:
+                        target_config["wol.ip"] = addr["broadcast"]
+                        break
             else:
-                # not in the cache, do the expensive arp search
-                host_to_mac = get_arp_hash()
-                if target in host_to_mac:
-                    # mac found in the hash
-                    print("Trying to wake host: [%s]" % target)
-                    mac = host_to_mac[target]
-                else:
-                    # cannot autodetect the mac address
-                    print("Could not determine the MAC address of [%s]" % target, file=sys.stderr)
-                    sys.exit(EX_NOHOST)
+                target_config["wol.ip"] = default_broadcast_addr
 
-        wakeonlan(mac, wait_for_ack)
+        if cmdline_bcast_port != None:
+            target_config["wol.port"] = cmdline_bcast_port
+        elif not "wol.port" in target_config:
+            target_config["wol.port"] = default_broadcast_port
 
-    elif method == "ipmi":
-        ipmiwake(
-            ipmi_host=target,
-            ipmi_port=623,
-            ipmi_username=ipmi_username,
-            ipmi_password=ipmi_password,
-        )
+        wakeonlan(target_config)
 
     sys.exit(EX_OK)

@@ -53,6 +53,7 @@ Architecture: all
 Depends:
  ${misc:Depends},
  ${python3:Depends},
+ powerwake-common (= ${binary:Version}),
  python3-dnspython,
  python3-netifaces,
  python3-pyipmi,

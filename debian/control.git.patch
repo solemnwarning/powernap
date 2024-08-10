@@ -18,7 +18,7 @@
  Description: reduce the power consumption of a system when inactive
   PowerNap watches a series of configurable monitors.  When no activity
   has occurred on any of these monitors for some specified time, PowerNap
-@@ -48,7 +48,7 @@ Description: reduce the power consumption of a system when inactive
+@@ -48,17 +48,17 @@ Description: reduce the power consumption of a system when inactive
   .
   See /etc/powernap/config for all configurable options and defaults.
  
@@ -27,7 +27,10 @@
  Architecture: all
  Depends:
   ${misc:Depends},
-@@ -58,7 +58,7 @@ Depends:
+  ${python3:Depends},
+- powerwake-common (= ${binary:Version}),
++ powerwake-common-git (= ${binary:Version}),
+  python3-dnspython,
   python3-netifaces,
   python3-pyipmi,
   debconf (>= 0.5) | debconf-2.0

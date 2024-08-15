@@ -1,6 +1,6 @@
 --- a/debian/control
 +++ b/debian/control
-@@ -16,7 +16,7 @@ Build-Depends: debhelper (>= 13),
+@@ -17,7 +17,7 @@ Build-Depends: debhelper (>= 13),
   python3-scapy
  Homepage: https://github.com/solemnwarning/powernap
  
@@ -9,7 +9,7 @@
  Architecture: all
  Depends:
   ${misc:Depends},
-@@ -25,7 +25,7 @@ Depends:
+@@ -26,7 +26,7 @@ Depends:
   pm-utils,
   python3-pytimeparse
  Recommends: ethtool
@@ -18,7 +18,7 @@
  Description: reduce the power consumption of a system when inactive
   PowerNap watches a series of configurable monitors.  When no activity
   has occurred on any of these monitors for some specified time, PowerNap
-@@ -48,17 +48,17 @@ Description: reduce the power consumption of a system when inactive
+@@ -49,17 +49,17 @@ Description: reduce the power consumption of a system when inactive
   .
   See /etc/powernap/config for all configurable options and defaults.
  
@@ -39,7 +39,7 @@
  Description: remotely wake a napping system
   PowerWake is a generic mechanism for remotely waking systems.  It is
   intended to support wake-on-lan, ipmi, and other remote waking mechanisms.
-@@ -66,11 +66,11 @@ Description: remotely wake a napping system
+@@ -67,11 +67,11 @@ Description: remotely wake a napping system
   some handy caching of MAC addresses, such that systems can be awakened by
   hostname or ip address, in addition to MAC address.
  
@@ -54,7 +54,7 @@
  Description: remotely wake a napping system - Server Daemon
   PowerWake Server is a mechanism to remotely monitor and wake up systems
   based on manual intervention, or automatic intervention based on a set of
-@@ -83,7 +83,7 @@ Description: remotely wake a napping system - Server Daemon
+@@ -84,7 +84,7 @@ Description: remotely wake a napping system - Server Daemon
   When activity is received, the monitors will automatically try to wake up
   if it is in powersave or offline mode.
  

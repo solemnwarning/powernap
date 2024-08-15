@@ -6,6 +6,7 @@ Standards-Version: 3.9.1
 Build-Depends: debhelper (>= 13),
  dh-python,
  gettext-base,
+ go-md2man,
  python3,
  python3-dnspython,
  python3-netifaces,

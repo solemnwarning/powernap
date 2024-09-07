@@ -40,6 +40,7 @@
 # "ipmi.username"    Username for BMC authentication (optional)
 # "ipmi.password"    Password for BMC authentication (optional)
 
+import dns.exception
 import dns.resolver
 import re
 import socket
@@ -204,14 +205,14 @@ def target_config_from_dns(hostname):
 		if a != None and len(a) == 1:
 			a_address = a[0].address
 	
-	except dns.resolver.NoAnswer:
+	except dns.exception.DNSException:
 		# No A record found, not necessarily an error.
 		pass
 	
 	try:
 		txt = dns.resolver.resolve(hostname, "TXT")
 	
-	except dns.resolver.NoAnswer:
+	except dns.exception.DNSException:
 		# No TXT record found, no powerwake config here.
 		return None
 	

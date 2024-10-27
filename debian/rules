@@ -12,6 +12,7 @@ get-orig-source:
 
 override_dh_auto_build:
 	go-md2man < man/powerwake.1.md > man/powerwake.1
+	go-md2man < man/powerwake.hosts.5.md > man/powerwake.hosts.5
 	dh_auto_build
 
 override_dh_installsystemd:

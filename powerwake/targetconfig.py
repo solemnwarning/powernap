@@ -40,10 +40,12 @@
 # "ipmi.username"    Username for BMC authentication (optional)
 # "ipmi.password"    Password for BMC authentication (optional)
 
+import configparser
 import dns.exception
 import dns.resolver
 import re
 import socket
+import sys
 import warnings
 
 import powerwake.addressutils
@@ -290,5 +292,113 @@ def target_config_from_ethers(target, filename, gethostbyname = socket.gethostby
 			break
 		
 	f.close()
+	
+	return config
+
+def target_config_from_hosts_section(filename, gethostbyname, cfg, section_name):
+	config = {}
+	config["method"] = None
+	config["wait"] = False
+	
+	config["target"] = section_name
+	
+	target_ip = None
+	try:
+		config["target.ip"] = gethostbyname(section_name)
+	except:
+		pass
+	
+	def set_method(method):
+		if config["method"] != None and config["method"] != method:
+			other_method = config["method"]
+			raise Error(f"{section_name} in {filename} has options for multiple methods ({other_method}, {method})")
+		
+		config["method"] = method
+	
+	for (attr_name, attr_value) in cfg.items(section_name):
+		def attr_host_to_ip():
+			try:
+				return gethostbyname(attr_value)
+				
+			except Exception as e:
+				raise Error(f"{section_name} {attr_name} option in {filename} cannot be resolved: " + str(e))
+		
+		def attr_port_number():
+			try:
+				port = int(attr_value)
+				
+				if port < 0 or port > 65535:
+					raise ValueError(f"port number {port} is out of range")
+				
+				return port
+				
+			except ValueError:
+				raise Error(f"{section_name} {attr_name} option in {filename} has invalid port number")
+		
+		if attr_name == "wol.mac":
+			set_method("wol")
+			
+			mac = powerwake.addressutils.normalise_mac(attr_value)
+			if mac == None:
+				raise Error(f"{section_name} wol.mac option in {filename} has invalid format")
+			
+			config["wol.mac"] = mac
+			
+		elif attr_name == "wol.host":
+			set_method("wol")
+			config["wol.ip"] = attr_host_to_ip()
+			
+		elif attr_name == "wol.port":
+			set_method("wol")
+			config["wol.port"] = attr_port_number()
+			
+		elif attr_name == "ipmi.host":
+			set_method("ipmi")
+			config["ipmi.host"] = attr_value
+			
+		elif attr_name == "ipmi.port":
+			set_method("ipmi")
+			config["ipmi.port"] = attr_port_number()
+			
+		elif attr_name == "ipmi.username":
+			set_method("ipmi")
+			config["ipmi.username"] = attr_value
+			
+		elif attr_name == "ipmi.password":
+			set_method("ipmi")
+			config["ipmi.password"] = attr_value
+			
+		else:
+			print(f"Ignoring unknown {section_name} option {attr_name} in {filename}", file=sys.stderr)
+	
+	if config["method"] == "wol":
+		if not "wol.mac" in config:
+			raise Error(f"{section_name} wol.mac option is not set in {filename}")
+	
+	elif config["method"] == "ipmi":
+		if not "ipmi.host" in config:
+			raise Error(f"{section_name} ipmi.host option is not set in {filename}")
+	
+	if config["method"] != None:
+		return config
+	else:
+		return None
+
+def target_config_from_file(target, filename, gethostbyname = socket.gethostbyname):
+	cfg = configparser.ConfigParser()
+	cfg.read(filename)
+	
+	config = None
+	
+	for section_name in cfg.sections():
+		if section_name == target:
+			config = target_config_from_hosts_section(filename, gethostbyname, cfg, section_name)
+			
+		else:
+			try:
+				section_config = target_config_from_hosts_section(filename, gethostbyname, cfg, section_name)
+				
+			except Error as e:
+				print(str(e), file=sys.stderr)
 	
 	return config

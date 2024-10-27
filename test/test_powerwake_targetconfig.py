@@ -413,3 +413,209 @@ class TestPowerWakeEthersNoMatchByName(unittest.TestCase):
 		config = powerwake.targetconfig.target_config_from_ethers("hostX.example.com", ethers.name, mock_gethostbyname)
 		
 		self.assertEqual(config, None)
+
+class TestPowerWakeHostsFileMatch(unittest.TestCase):
+	def runTest(self):
+		HOSTS_CONTENT = (
+			b"[host1.example.com]\n" +
+			b"wol.mac = AA:BB:CC:DD:EE:FF\n" +
+			b"wol.port = 999\n"
+		)
+		
+		hosts = tempfile.NamedTemporaryFile()
+		hosts.file.write(HOSTS_CONTENT)
+		hosts.file.flush()
+		
+		config = powerwake.targetconfig.target_config_from_file("host1.example.com", hosts.name, mock_gethostbyname)
+		
+		self.assertEqual(config, {
+			"target": "host1.example.com",
+			"target.ip": "1.2.3.4", # From "DNS"
+			"method": "wol",
+			"wol.mac": "aabbccddeeff",
+			"wol.port": 999,
+			"wait": False
+		})
+
+class TestPowerWakeHostsFileMatchNoIP(unittest.TestCase):
+	def runTest(self):
+		HOSTS_CONTENT = (
+			b"[hostX.example.com]\n" +
+			b"wol.mac = AA:BB:CC:DD:EE:FF\n"
+		)
+		
+		hosts = tempfile.NamedTemporaryFile()
+		hosts.file.write(HOSTS_CONTENT)
+		hosts.file.flush()
+		
+		config = powerwake.targetconfig.target_config_from_file("hostX.example.com", hosts.name, mock_gethostbyname)
+		
+		self.assertEqual(config, {
+			"target": "hostX.example.com",
+			"method": "wol",
+			"wol.mac": "aabbccddeeff",
+			"wait": False
+		})
+
+class TestPowerWakeHostsFileNoMatch(unittest.TestCase):
+	def runTest(self):
+		HOSTS_CONTENT = (
+			b"[host1.example.com]\n" +
+			b"wol.mac = AA:BB:CC:DD:EE:FF\n"
+		)
+		
+		hosts = tempfile.NamedTemporaryFile()
+		hosts.file.write(HOSTS_CONTENT)
+		hosts.file.flush()
+		
+		config = powerwake.targetconfig.target_config_from_file("host2.example.com", hosts.name, mock_gethostbyname)
+		
+		self.assertEqual(config, None)
+
+class TestPowerWakeHostsFileBadPort(unittest.TestCase):
+	def runTest(self):
+		HOSTS_CONTENT = (
+			b"[host1.example.com]\n" +
+			b"wol.mac = AA:BB:CC:DD:EE:FF\n" +
+			b"wol.port = 99999\n"
+		)
+		
+		hosts = tempfile.NamedTemporaryFile()
+		hosts.file.write(HOSTS_CONTENT)
+		hosts.file.flush()
+		
+		with self.assertRaises(powerwake.targetconfig.Error) as cm:
+			powerwake.targetconfig.target_config_from_file("host1.example.com", hosts.name, mock_gethostbyname)
+		
+		self.assertEqual(str(cm.exception), f"host1.example.com wol.port option in {hosts.name} has invalid port number")
+
+class TestPowerWakeHostsFileBadPortInOtherSection(unittest.TestCase):
+	def runTest(self):
+		HOSTS_CONTENT = (
+			b"[host1.example.com]\n" +
+			b"wol.mac = AA:BB:CC:DD:EE:FF\n" +
+			b"[host2.example.com]\n" +
+			b"wol.mac = 00:11:22:33:44:55\n" +
+			b"wol.port = 99999\n"
+		)
+		
+		hosts = tempfile.NamedTemporaryFile()
+		hosts.file.write(HOSTS_CONTENT)
+		hosts.file.flush()
+		
+		config = powerwake.targetconfig.target_config_from_file("host1.example.com", hosts.name, mock_gethostbyname)
+		
+		self.assertEqual(config, {
+			"target": "host1.example.com",
+			"target.ip": "1.2.3.4", # From "DNS"
+			"method": "wol",
+			"wol.mac": "aabbccddeeff",
+			"wait": False
+		})
+
+class TestPowerWakeHostsFileIPMIFull(unittest.TestCase):
+	def runTest(self):
+		HOSTS_CONTENT = (
+			b"[host1.example.com]\n" +
+			b"ipmi.host = ipmi.host1.example.com\n" +
+			b"ipmi.port = 999\n" +
+			b"ipmi.username = OPERATOR\n" +
+			b"ipmi.password = password123\n"
+		)
+		
+		hosts = tempfile.NamedTemporaryFile()
+		hosts.file.write(HOSTS_CONTENT)
+		hosts.file.flush()
+		
+		config = powerwake.targetconfig.target_config_from_file("host1.example.com", hosts.name, mock_gethostbyname)
+		
+		self.assertEqual(config, {
+			"target": "host1.example.com",
+			"target.ip": "1.2.3.4",
+			"method": "ipmi",
+			"ipmi.host": "ipmi.host1.example.com",
+			"ipmi.port": 999,
+			"ipmi.username": "OPERATOR",
+			"ipmi.password": "password123",
+			"wait": False,
+		})
+
+class TestPowerWakeHostsFileIPMIPartial(unittest.TestCase):
+	def runTest(self):
+		HOSTS_CONTENT = (
+			b"[host1.example.com]\n" +
+			b"ipmi.host = ipmi.host1.example.com\n" +
+			b"ipmi.username = OPERATOR\n"
+		)
+		
+		hosts = tempfile.NamedTemporaryFile()
+		hosts.file.write(HOSTS_CONTENT)
+		hosts.file.flush()
+		
+		config = powerwake.targetconfig.target_config_from_file("host1.example.com", hosts.name, mock_gethostbyname)
+		
+		self.assertEqual(config, {
+			"target": "host1.example.com",
+			"target.ip": "1.2.3.4",
+			"method": "ipmi",
+			"ipmi.host": "ipmi.host1.example.com",
+			"ipmi.username": "OPERATOR",
+			"wait": False,
+		})
+
+class TestPowerWakeHostsFileConflictingMethods(unittest.TestCase):
+	def runTest(self):
+		HOSTS_CONTENT = (
+			b"[host1.example.com]\n" +
+			b"wol.mac = AA:BB:CC:DD:EE:FF\n" +
+			b"ipmi.host = ipmi.host1.example.com\n"
+		)
+		
+		hosts = tempfile.NamedTemporaryFile()
+		hosts.file.write(HOSTS_CONTENT)
+		hosts.file.flush()
+		
+		with self.assertRaises(powerwake.targetconfig.Error) as cm:
+			powerwake.targetconfig.target_config_from_file("host1.example.com", hosts.name, mock_gethostbyname)
+		
+		self.assertEqual(str(cm.exception), f"host1.example.com in {hosts.name} has options for multiple methods (wol, ipmi)")
+
+class TestPowerWakeHostsFileCustomWOLIP(unittest.TestCase):
+	def runTest(self):
+		HOSTS_CONTENT = (
+			b"[host1.example.com]\n" +
+			b"wol.mac = AA:BB:CC:DD:EE:FF\n" +
+			b"wol.host = host2.example.com\n"
+		)
+		
+		hosts = tempfile.NamedTemporaryFile()
+		hosts.file.write(HOSTS_CONTENT)
+		hosts.file.flush()
+		
+		config = powerwake.targetconfig.target_config_from_file("host1.example.com", hosts.name, mock_gethostbyname)
+		
+		self.assertEqual(config, {
+			"target": "host1.example.com",
+			"target.ip": "1.2.3.4", # From "DNS"
+			"method": "wol",
+			"wol.mac": "aabbccddeeff",
+			"wol.ip": "5.6.7.8",
+			"wait": False
+		})
+
+class TestPowerWakeHostsFileBadWOLIP(unittest.TestCase):
+	def runTest(self):
+		HOSTS_CONTENT = (
+			b"[host1.example.com]\n" +
+			b"wol.mac = AA:BB:CC:DD:EE:FF\n" +
+			b"wol.host = nosuchhost.example.com\n"
+		)
+		
+		hosts = tempfile.NamedTemporaryFile()
+		hosts.file.write(HOSTS_CONTENT)
+		hosts.file.flush()
+		
+		with self.assertRaises(powerwake.targetconfig.Error) as cm:
+			powerwake.targetconfig.target_config_from_file("host1.example.com", hosts.name, mock_gethostbyname)
+		
+		self.assertEqual(str(cm.exception), f"host1.example.com wol.host option in {hosts.name} cannot be resolved: Host not known: nosuchhost.example.com")

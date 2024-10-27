@@ -208,14 +208,48 @@ def ipmiwake(target_config):
             sys.exit(EX_TEMPFAIL)
 
 def find_target_config(target):
+    # Check user powerwake.hosts file (if present)
+
+    XDG_CONFIG_HOME = os.environ.get("XDG_CONFIG_HOME")
+    HOME = os.environ.get("HOME")
+
+    if XDG_CONFIG_HOME != None:
+        hosts_path = os.path.join(XDG_CONFIG_HOME, "powerwake.hosts")
+
+        if os.path.exists(hosts_path):
+            if config := powerwake.targetconfig.target_config_from_file(target, hosts_path):
+                # Target is a host listed in $XDG_CONFIG_HOME/powerwake.hosts
+                return config
+
+    elif HOME != None:
+        hosts_path = os.path.join(HOME, ".config", "powerwake.hosts")
+
+        if os.path.exists(hosts_path):
+            if config := powerwake.targetconfig.target_config_from_file(target, hosts_path):
+                # Target is a host listed in $HOME/.config/powerwake.hosts
+                return config
+
+    # Check system-wide powerwake.hosts file (if present)
+
+    if os.path.exists("/etc/powernap/powerwake.hosts"):
+        if config := powerwake.targetconfig.target_config_from_file(target, "/etc/powernap/powerwake.hosts"):
+                # Target is a host listed in /etc/powernap/powerwake.hosts
+                return config
+
+    # Check DNS
+
     if config := powerwake.targetconfig.target_config_from_dns(target):
         # Target configuration was found in DNS
         return config
+
+    # Check /etc/ethers file (if present)
 
     if os.path.exists("/etc/ethers"):
         if config := powerwake.targetconfig.target_config_from_ethers(target, "/etc/ethers"):
             # Target is a hostname or IP listed in /etc/ethers
             return config
+
+    # Try parsing it as an otherwise-unknown MAC address
 
     if mac := powerwake.addressutils.normalise_mac(target):
         # Target is a MAC address we know nothing else about
@@ -314,10 +348,15 @@ if __name__ == '__main__':
     target_config["wait.timeout"] = wait_timeout
 
     if target_config["method"] == "ipmi":
-        target_config["ipmi.host"] = target
-        target_config["ipmi.port"] = 623
+        if not "ipmi.host" in target_config:
+            target_config["ipmi.host"] = target
+        if not "ipmi.port" in target_config:
+            target_config["ipmi.port"] = 623
 
-        target_config["wait.ip"] = cmdline_bcast_addr
+        if cmdline_bcast_addr != None:
+            target_config["wait.ip"] = cmdline_bcast_addr
+        elif (not "wait.ip" in target_config) and "target.ip" in target_config:
+            target_config["wait.ip"] = target_config["target.ip"]
 
         if cmdline_bcast_port != None:
             target_config["wait.port"] = cmdline_bcast_port

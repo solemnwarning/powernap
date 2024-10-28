@@ -1,1 +1,2 @@
 usr/lib/*/dist-packages/powerwake/
+powerwake.hosts /etc/powerwake/

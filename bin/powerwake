@@ -151,10 +151,14 @@ def ipmiwake(target_config):
 
         ipmi.target = pyipmi.Target(ipmb_address=0x20)
 
-        # pyipmi doesn't have an API to request a non-administrator privilege level, which means
-        # we can't connect with less-privileged (i.e. operator) accounts... but it does have an
-        # internal constant for what the privilege level resolves to which we can patch.
-        pyipmi.Session.PRIV_LEVEL_ADMINISTRATOR = 3 # OPERATOR
+        # Check if we are using a new enough version of pyipmi to specify the privilege level.
+        if getattr(pyipmi.Session, "set_priv_level", None) != None:
+            ipmi.session.set_priv_level("operator")
+        else:
+            # pyipmi doesn't have an API to request a non-administrator privilege level, which means
+            # we can't connect with less-privileged (i.e. operator) accounts... but it does have an
+            # internal constant for what the privilege level resolves to which we can patch.
+            pyipmi.Session.PRIV_LEVEL_ADMINISTRATOR = 3 # OPERATOR
 
         ipmi.session.establish()
 

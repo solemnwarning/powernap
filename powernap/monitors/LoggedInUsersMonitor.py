@@ -39,7 +39,7 @@ class LoggedInUsersMonitor:
         w_env = os.environ.copy()
         w_env["LC_ALL"] = "C"
 
-        result = subprocess.run(["w", "--no-header", "--short"],
+        result = subprocess.run(["w", "--no-header", "--short", "--terminal", "--ip-addr"],
             capture_output = True, text = True, stdin = subprocess.DEVNULL, env = w_env)
 
         if result.returncode == 0:
